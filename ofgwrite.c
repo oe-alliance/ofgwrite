@@ -336,7 +336,7 @@ int setUbiDeviveName(int mtd_num, char* volume_name)
 
 int main(int argc, char *argv[])
 {
-	printf("\nofgwrite Utility v0.3\n");
+	printf("\nofgwrite Utility v0.4\n");
 	printf("Author: Betacentauri\n");
 	printf("Based upon: mtd-utils-native-1.4.9\n");
 	printf("Use at your own risk! Make always a backup before use!\n");
@@ -353,7 +353,7 @@ int main(int argc, char *argv[])
 	}
 
 	found_mtd_kernel = 0;
-	found_mtd_rootfs   = 0;
+	found_mtd_rootfs = 0;
 
 	printf("\n");
 	
@@ -460,13 +460,13 @@ int main(int argc, char *argv[])
 		sleep(2);
 
 		// Erase
-		if (!flash_erase(rootfs_mtd_device, "rootfs"))
+		/*if (!flash_erase(rootfs_mtd_device, "rootfs"))
 		{
 			printf("Error erasing rootfs! System might not boot. If you have problems please flash backup! System will reboot in 60 seconds\n");
 			sleep(60);
 			reboot(LINUX_REBOOT_CMD_RESTART);
 			return -1;
-		}
+		}*/
 
 		// Flash rootfs
 		if (!ubi_write(rootfs_mtd_device, rootfs_filename))
