@@ -50,7 +50,6 @@ typedef void * libubi_t;
  * @mtd_dev_node: path to MTD device node to attach
  * @vid_hdr_offset: VID header offset (%0 means default offset and this is what
  *                  most of the users want)
- * @max_beb_per1024: Maximum expected bad eraseblocks per 1024 eraseblocks
  */
 struct ubi_attach_request
 {
@@ -58,7 +57,6 @@ struct ubi_attach_request
 	int mtd_num;
 	const char *mtd_dev_node;
 	int vid_hdr_offset;
-	int max_beb_per1024;
 };
 
 /**
@@ -212,23 +210,34 @@ int ubi_get_info(libubi_t desc, struct ubi_info *info);
 int mtd_num2ubi_dev(libubi_t desc, int mtd_num, int *dev_num);
 
 /**
- * ubi_attach - attach an MTD device by its node path or bt MTD device number
+ * ubi_attach_mtd - attach MTD device to UBI.
+ * @desc: UBI library descriptor
+ * @node: name of the UBI control character device node
+ * @req: MTD attach request.
+ *
+ * This function creates a new UBI device by attaching an MTD device as
+ * described by @req. Returns %0 in case of success and %-1 in case of failure.
+ * The newly created UBI device number is returned in @req->dev_num.
+ */
+int ubi_attach_mtd(libubi_t desc, const char *node,
+		   struct ubi_attach_request *req);
+
+/**
+ * ubi_attach - attach an MTD device by its node path.
  * @desc: UBI library descriptor
  * @node: name of the UBI control character device node
  * @req: MTD attach request
  *
  * This function creates new UBI device by attaching an MTD device described by
  * @req. If @req->mtd_dev_node is given it should contain path to the MTD
- * device node. Otherwise @req->mtd_num will be used.
+ * device node. Otherwise functionality is similar than in function
+ * 'ubi_attach_mtd()' where @req->mtd_num is used.
  *
- * Returns %0 in case of success, %-1 in case of failure (errno is set) and %1
- * if parameter @req->max_beb_per1024 was ignored by kernel (because the kernel
- * is old and does not support this feature, which was added in 3.7). The newly
- * created UBI device number is returned in @req->dev_num. In the MTD device
- * was specified by its device node path, the MTD device number is returned in
- * @req->mtd_num.
+ * Returns %0 in case of success and %-1 in case of failure (errno is set). The
+ * newly created UBI device number is returned in @req->dev_num.
  */
-int ubi_attach(libubi_t desc, const char *node, struct ubi_attach_request *req);
+int ubi_attach(libubi_t desc, const char *node,
+	       struct ubi_attach_request *req);
 
 /**
  * ubi_detach_mtd - detach an MTD device.
@@ -337,15 +346,6 @@ int ubi_get_dev_info(libubi_t desc, const char *node,
 		     struct ubi_dev_info *info);
 
 /**
- * ubi_dev_present - check whether an UBI device is present.
- * @desc: UBI library descriptor
- * @dev_num: UBI device number to check
- *
- * This function returns %1 if UBI device is present and %0 if not.
- */
-int ubi_dev_present(libubi_t desc, int dev_num);
-
-/**
  * ubi_get_dev_info1 - get UBI device information.
  * @desc: UBI library descriptor
  * @dev_num: UBI device number to fetch information about
@@ -417,17 +417,18 @@ int ubi_update_start(libubi_t desc, int fd, long long bytes);
  * @fd: volume character device file descriptor
  * @lnum: LEB number to change
  * @bytes: how many bytes of new data will be written to the LEB
+ * @dtype: data type (%UBI_LONGTERM, %UBI_SHORTTERM, %UBI_UNKNOWN)
  *
  * This function initiates atomic LEB change operation and returns %0 in case
  * of success and %-1 in case of error. he caller is assumed to write @bytes
  * data to the volume @fd afterward.
  */
-int ubi_leb_change_start(libubi_t desc, int fd, int lnum, int bytes);
+int ubi_leb_change_start(libubi_t desc, int fd, int lnum, int bytes, int dtype);
 
 /**
  * ubi_set_property - set volume propety.
  * @fd: volume character device file descriptor
- * @property: the property to change (%UBI_VOL_PROP_DIRECT_WRITE, etc)
+ * @property: the property to change (%UBI_PROP_DIRECT_WRITE, etc)
  * @value: new value of the changed property
  *
  * This function changes a property of a volume. Returns zero in case of
