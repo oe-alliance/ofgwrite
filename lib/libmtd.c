@@ -34,7 +34,7 @@
 #include <inttypes.h>
 
 #include <mtd/mtd-user.h>
-#include <libmtd.h>
+#include "libmtd.h"
 
 #include "libmtd_int.h"
 #include "common.h"
