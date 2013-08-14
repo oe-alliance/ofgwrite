@@ -13,6 +13,7 @@
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
+int quiet        = 0;
 int show_help    = 0;
 int found_mtd_kernel;
 int found_mtd_rootfs;
@@ -31,6 +32,7 @@ void printUsage()
 	printf("   -k --kernel  flash kernel (default)\n");
 	printf("   -r --rootfs  flash root (default)\n");
 	printf("   -n --nowrite show only found image and mtd partitions (no write)\n");
+	printf("   -q --quiet   show less output\n");
 	printf("   -h --help    show help\n");
 }
 
@@ -92,11 +94,12 @@ int read_args(int argc, char *argv[])
 {
 	int option_index = 0;
 	int opt;
-	static const char *short_options = "krnh";
+	static const char *short_options = "krnqh";
 	static const struct option long_options[] = {
 												{"kernel" , no_argument, NULL, 'k'},
 												{"rootfs" , no_argument, NULL, 'r'},
 												{"nowrite", no_argument, NULL, 'n'},
+												{"quiet"  , no_argument, NULL, 'q'},
 												{"help"   , no_argument, NULL, 'h'},
 												{NULL     , 0          , NULL,  0} };
 
@@ -112,6 +115,9 @@ int read_args(int argc, char *argv[])
 				break;
 			case 'n':
 				no_write = 1;
+				break;
+			case 'q':
+				quiet = 1;
 				break;
 			case '?':
 				show_help = 1;
@@ -235,7 +241,8 @@ int flash_erase(char* device, char* context)
 	};
 	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
 
-	printf("Erasing %s: flash_erase %s 0 0\n", context, device);
+	if (!quiet)
+		printf("Erasing %s: flash_erase %s 0 0\n", context, device);
 	if (!no_write)
 		if (flash_erase_main(argc, argv) != 0)
 			return 0;
@@ -257,7 +264,8 @@ int flash_write(char* device, char* filename)
 	};
 	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
 
-	printf("Flashing kernel: nandwrite %s %s %s\n", opts, device, filename);
+	if (!quiet)
+		printf("Flashing kernel: nandwrite %s %s %s\n", opts, device, filename);
 	if (!no_write)
 		if (nandwrite_main(argc, argv) != 0)
 			return 0;
@@ -389,6 +397,8 @@ int main(int argc, char *argv[])
 
 	if (flash_kernel)
 	{
+		if (quiet)
+			printf("Flashing kernel ...");
 		// Erase
 		if (!flash_erase(kernel_mtd_device, "kernel"))
 		{
@@ -402,6 +412,8 @@ int main(int argc, char *argv[])
 			printf("Error flashing kernel! System won't boot. Please flash backup!\n");
 			return -1;
 		}
+		if (quiet)
+			printf("done\n");
 	}
 
 	if (flash_rootfs)
