@@ -254,10 +254,16 @@ int nandwrite_main(int argc, char * const argv[])
 
 	mtd_desc = libmtd_open();
 	if (!mtd_desc)
-		errmsg_die("can't initialize libmtd");
+	{
+		errmsg("can't initialize libmtd");
+		return -1;
+	}
 	/* Fill in MTD device capability structure */
 	if (mtd_get_dev_info(mtd_desc, mtd_device, &mtd) < 0)
-		errmsg_die("mtd_get_dev_info failed");
+	{
+		errmsg("mtd_get_dev_info failed");
+		return -1;
+	}
 
 	/*
 	 * Pretend erasesize is specified number of blocks - to match jffs2
@@ -267,9 +273,12 @@ int nandwrite_main(int argc, char * const argv[])
 	ebsize_aligned = mtd.eb_size * blockalign;
 
 	if (mtdoffset & (mtd.min_io_size - 1))
-		errmsg_die("The start address is not page-aligned !\n"
+	{
+		errmsg("The start address is not page-aligned !\n"
 			   "The pagesize of this NAND Flash is 0x%x.\n",
 			   mtd.min_io_size);
+		return -1;
+	}
 
 	/* Select OOB write mode */
 	if (noecc)
@@ -284,7 +293,7 @@ int nandwrite_main(int argc, char * const argv[])
 		if (ret) {
 			switch (errno) {
 			case ENOTTY:
-				errmsg_die("ioctl MTDFILEMODE is missing");
+				errmsg("ioctl MTDFILEMODE is missing");
 			default:
 				sys_errmsg("MTDFILEMODE");
 				return -1;
