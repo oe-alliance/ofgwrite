@@ -166,7 +166,10 @@ int read_mtd_file()
 	if (f == NULL)
 	{ 
 		perror("Error while opening /proc/mtd");
-		return 0;
+		// for testing try to open local mtd file
+		f = fopen("./mtd", "r");
+		if (f == NULL)
+			return 0;
 	}
 
 	char line [1000];
