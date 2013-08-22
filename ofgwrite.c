@@ -8,6 +8,7 @@
 #include <getopt.h>
 #include <linux/reboot.h>
 #include <libubi.h>
+#include <syslog.h>
 
 
 int flash_kernel = 0;
@@ -355,7 +356,11 @@ int main(int argc, char *argv[])
 
 	int ret;
 
+	openlog("ofgwrite", LOG_CONS | LOG_NDELAY, LOG_USER);
+	syslog(LOG_INFO, "Program start");
+
 	ret = read_args(argc, argv);
+	syslog(LOG_INFO, "After read_args");
 
 	if (!ret || show_help)
 	{
@@ -370,6 +375,7 @@ int main(int argc, char *argv[])
 	
 	if (!read_mtd_file())
 		return -1;
+	syslog(LOG_INFO, "After read_mtd_file");
 
 	printf("\n");
 
@@ -387,7 +393,8 @@ int main(int argc, char *argv[])
 			printf(", because no kernel file was found\n");
 		return -1;
 	}
-
+printf("kernel %s\n", kernel_mtd_device);
+printf("rootfs %s\n", rootfs_mtd_device);
 	if (flash_rootfs && (!found_mtd_rootfs || rootfs_filename[0] == '\0'))
 	{
 		printf("Error: Cannot flash rootfs");
@@ -402,21 +409,26 @@ int main(int argc, char *argv[])
 	{
 		if (quiet)
 			printf("Flashing kernel ...");
+		syslog(LOG_INFO, "Flash kernel -> flash_erase");
 		// Erase
 		if (!flash_erase(kernel_mtd_device, "kernel"))
 		{
 			printf("Error erasing kernel! System might not boot. If you have problems please flash backup!\n");
+			syslog(LOG_INFO, "Error flash_erase");
 			return -1;
 		}
 
+		syslog(LOG_INFO, "Flash kernel -> flash_write");
 		// Flash
 		if (!flash_write(kernel_mtd_device, kernel_filename))
 		{
 			printf("Error flashing kernel! System won't boot. Please flash backup!\n");
+			syslog(LOG_INFO, "Error flash_write");
 			return -1;
 		}
 		if (quiet)
 			printf("done\n");
+		syslog(LOG_INFO, "Flash kernel -> successful");
 	}
 
 	if (flash_rootfs)
@@ -431,10 +443,11 @@ int main(int argc, char *argv[])
 			if (ret)
 			{
 				printf("Error switching mode!\n");
+				syslog(LOG_INFO, "Error: can't switch to user mode 2");
 				return -1;
 			}
 		}
-
+		syslog(LOG_INFO, "switched to user mode 2");
 		sleep(1);
 
 		// kill nmbd and smbd -> otherwise remounting root read-only is not possible
@@ -453,6 +466,7 @@ int main(int argc, char *argv[])
 		if (ret)
 		{
 			printf("Error syncing filesystem!\n");
+			syslog(LOG_INFO, "Error: Syncing fs");
 			return -1;
 		}
 
@@ -466,6 +480,7 @@ int main(int argc, char *argv[])
 			if (ret)
 			{
 				printf("Error remounting root!\n");
+				syslog(LOG_INFO, "Error remounting root read only");
 				return -1;
 			}
 		}
@@ -484,9 +499,11 @@ int main(int argc, char *argv[])
 		}*/
 
 		// Flash rootfs
+		syslog(LOG_INFO, "Flash rootfs");
 		if (!ubi_write(rootfs_mtd_device, rootfs_filename))
 		{
 			printf("Error flashing rootfs! System won't boot. Please flash backup! System will reboot in 60 seconds\n");
+			syslog(LOG_INFO, "Error: Flashing rootfs");
 			sleep(60);
 			reboot(LINUX_REBOOT_CMD_RESTART);
 			return -1;
@@ -500,10 +517,16 @@ int main(int argc, char *argv[])
 		}*/
 
 		printf("Successfully flashed rootfs! Rebooting in 5 seconds...\n");
+		syslog(LOG_INFO, "Successfully flashed");
 		sleep(5);
 		if (!no_write)
+		{
+			syslog(LOG_INFO, "Rebooting");
 			reboot(LINUX_REBOOT_CMD_RESTART);
+		}
 	}
+
+	closelog();
 
 	return 0;
 }
