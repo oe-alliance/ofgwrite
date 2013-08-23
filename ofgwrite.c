@@ -217,14 +217,21 @@ int read_mtd_file()
 			{
 				if (dev[strlen(dev)-1] == ':') // cut ':'
 					dev[strlen(dev)-1] = '\0';
-				rootfs_mtd_num = atoi(&dev[strlen(dev)-1]);
-				strcpy(&rootfs_mtd_device[0], dev_path);
-				strcpy(&rootfs_mtd_device[5], dev);
-				if (rootfs_filename[0] != '\0')
-					printf("%s %8s %9s %11s  ->  %s\n", rootfs_mtd_device, size, esize, name, rootfs_filename);
+				if (strcmp(esize, "0001f000") != 0)
+				{
+					rootfs_mtd_num = atoi(&dev[strlen(dev)-1]);
+					strcpy(&rootfs_mtd_device[0], dev_path);
+					strcpy(&rootfs_mtd_device[5], dev);
+					if (rootfs_filename[0] != '\0')
+						printf("%s %8s %9s %11s  ->  %s\n", rootfs_mtd_device, size, esize, name, rootfs_filename);
+					else
+						printf("%s %8s %9s %11s\n", rootfs_mtd_device, size, esize, name);
+					found_mtd_rootfs = 1;
+				}
 				else
-					printf("%s %8s %9s %11s\n", rootfs_mtd_device, size, esize, name);
-				found_mtd_rootfs = 1;
+				{
+					printf("%s%s %8s %9s %11s  ->  %s\n", dev_path, dev, size, esize, name, "invalid erasesize");
+				}
 			}
 		}
 	}
@@ -348,7 +355,7 @@ int setUbiDeviveName(int mtd_num, char* volume_name)
 
 int main(int argc, char *argv[])
 {
-	printf("\nofgwrite Utility v0.4\n");
+	printf("\nofgwrite Utility v1.0\n");
 	printf("Author: Betacentauri\n");
 	printf("Based upon: mtd-utils-native-1.4.9\n");
 	printf("Use at your own risk! Make always a backup before use!\n");
@@ -379,11 +386,6 @@ int main(int argc, char *argv[])
 
 	printf("\n");
 
-	//if (!setUbiDeviveName(rootfs_mtd_num, "rootfs"))
-	//	return -1;
-
-	printf("\n");
-
 	if (flash_kernel && (!found_mtd_kernel || kernel_filename[0] == '\0'))
 	{
 		printf("Error: Cannot flash kernel");
@@ -393,8 +395,7 @@ int main(int argc, char *argv[])
 			printf(", because no kernel file was found\n");
 		return -1;
 	}
-printf("kernel %s\n", kernel_mtd_device);
-printf("rootfs %s\n", rootfs_mtd_device);
+
 	if (flash_rootfs && (!found_mtd_rootfs || rootfs_filename[0] == '\0'))
 	{
 		printf("Error: Cannot flash rootfs");
@@ -409,7 +410,7 @@ printf("rootfs %s\n", rootfs_mtd_device);
 	{
 		if (quiet)
 			printf("Flashing kernel ...");
-		syslog(LOG_INFO, "Flash kernel -> flash_erase");
+		syslog(LOG_INFO, "Flash kernel -> flash_erase %s", kernel_mtd_device);
 		// Erase
 		if (!flash_erase(kernel_mtd_device, "kernel"))
 		{
@@ -418,7 +419,7 @@ printf("rootfs %s\n", rootfs_mtd_device);
 			return -1;
 		}
 
-		syslog(LOG_INFO, "Flash kernel -> flash_write");
+		syslog(LOG_INFO, "Flash kernel -> flash_write device %s file %s", kernel_mtd_device, kernel_filename);
 		// Flash
 		if (!flash_write(kernel_mtd_device, kernel_filename))
 		{
@@ -489,17 +490,8 @@ printf("rootfs %s\n", rootfs_mtd_device);
 		ret = system("sync");
 		sleep(2);
 
-		// Erase
-		/*if (!flash_erase(rootfs_mtd_device, "rootfs"))
-		{
-			printf("Error erasing rootfs! System might not boot. If you have problems please flash backup! System will reboot in 60 seconds\n");
-			sleep(60);
-			reboot(LINUX_REBOOT_CMD_RESTART);
-			return -1;
-		}*/
-
 		// Flash rootfs
-		syslog(LOG_INFO, "Flash rootfs");
+		syslog(LOG_INFO, "Flash rootfs device %s file %s", rootfs_mtd_device, rootfs_filename);
 		if (!ubi_write(rootfs_mtd_device, rootfs_filename))
 		{
 			printf("Error flashing rootfs! System won't boot. Please flash backup! System will reboot in 60 seconds\n");
@@ -508,13 +500,6 @@ printf("rootfs %s\n", rootfs_mtd_device);
 			reboot(LINUX_REBOOT_CMD_RESTART);
 			return -1;
 		}
-		/*if (!ubi_write_volume(rootfs_ubi_device, rootfs_filename))
-		{
-			printf("Error writing rootfs! System won't boot. Please flash backup! System will reboot in 60 seconds\n");
-			sleep(60);
-			reboot(LINUX_REBOOT_CMD_RESTART);
-			return -1;
-		}*/
 
 		printf("Successfully flashed rootfs! Rebooting in 5 seconds...\n");
 		syslog(LOG_INFO, "Successfully flashed");
