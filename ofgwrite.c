@@ -201,7 +201,8 @@ int read_mtd_file()
 		else
 		{
 			sscanf(line, "%s%s%s%s", dev, size, esize, name);
-			if (strcmp(name, "\"kernel\"") == 0)
+			if (strcmp(name, "\"kernel\"") == 0
+			 || strcmp(name, "\"nkernel\"") == 0)
 			{
 				if (dev[strlen(dev)-1] == ':') // cut ':'
 					dev[strlen(dev)-1] = '\0';
@@ -355,7 +356,7 @@ int setUbiDeviveName(int mtd_num, char* volume_name)
 
 int main(int argc, char *argv[])
 {
-	printf("\nofgwrite Utility v1.0\n");
+	printf("\nofgwrite Utility v1.1\n");
 	printf("Author: Betacentauri\n");
 	printf("Based upon: mtd-utils-native-1.4.9\n");
 	printf("Use at your own risk! Make always a backup before use!\n");
