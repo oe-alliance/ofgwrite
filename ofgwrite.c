@@ -9,6 +9,8 @@
 #include <linux/reboot.h>
 #include <libubi.h>
 #include <syslog.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 
 int flash_kernel = 0;
@@ -18,23 +20,31 @@ int quiet        = 0;
 int show_help    = 0;
 int found_mtd_kernel;
 int found_mtd_rootfs;
+int user_mtd_kernel = 0;
+int user_mtd_rootfs = 0;
 char kernel_filename[1000];
 char kernel_mtd_device[1000];
+char kernel_mtd_device_arg[1000];
 char rootfs_filename[1000];
 char rootfs_mtd_device[1000];
+char rootfs_mtd_device_arg[1000];
 char rootfs_ubi_device[1000];
 int rootfs_mtd_num = -1;
+struct stat kernel_file_stat;
+struct stat rootfs_file_stat;
 
 
 void printUsage()
 {
 	printf("Usage: ofgwrite <parameter> <image_directory>\n");
 	printf("Options:\n");
-	printf("   -k --kernel  flash kernel (default)\n");
-	printf("   -r --rootfs  flash root (default)\n");
-	printf("   -n --nowrite show only found image and mtd partitions (no write)\n");
-	printf("   -q --quiet   show less output\n");
-	printf("   -h --help    show help\n");
+	printf("   -k --kernel           flash kernel with automatic device recognition(default)\n");
+	printf("   -kmtdx --kernel=mtdx  use mtdx device for kernel flashing\n");
+	printf("   -r --rootfs           flash rootfs with automatic device recognition(default)\n");
+	printf("   -rmtdy --rootfs=mtdy  use mtdy device for rootfs flashing\n");
+	printf("   -n --nowrite          show only found image and mtd partitions (no write)\n");
+	printf("   -q --quiet            show less output\n");
+	printf("   -h --help             show help\n");
 }
 
 int find_image_files(char* p)
@@ -73,6 +83,7 @@ int find_image_files(char* p)
 			{
 				strcpy(kernel_filename, path);
 				strcpy(&kernel_filename[strlen(path)], entry->d_name);
+				stat(kernel_filename, &kernel_file_stat);
 				printf("Found kernel file: %s\n", kernel_filename);
 			}
 			if (strcmp(entry->d_name, "rootfs.bin") == 0			// ET-xx00, XP1000
@@ -81,6 +92,7 @@ int find_image_files(char* p)
 			{
 				strcpy(rootfs_filename, path);
 				strcpy(&rootfs_filename[strlen(path)], entry->d_name);
+				stat(rootfs_filename, &rootfs_file_stat);
 				printf("Found rootfs file: %s\n", rootfs_filename);
 			}
 		}
@@ -95,14 +107,14 @@ int read_args(int argc, char *argv[])
 {
 	int option_index = 0;
 	int opt;
-	static const char *short_options = "krnqh";
+	static const char *short_options = "k::r::nqh";
 	static const struct option long_options[] = {
-												{"kernel" , no_argument, NULL, 'k'},
-												{"rootfs" , no_argument, NULL, 'r'},
-												{"nowrite", no_argument, NULL, 'n'},
-												{"quiet"  , no_argument, NULL, 'q'},
-												{"help"   , no_argument, NULL, 'h'},
-												{NULL     , 0          , NULL,  0} };
+												{"kernel" , optional_argument, NULL, 'k'},
+												{"rootfs" , optional_argument, NULL, 'r'},
+												{"nowrite", no_argument      , NULL, 'n'},
+												{"quiet"  , no_argument      , NULL, 'q'},
+												{"help"   , no_argument      , NULL, 'h'},
+												{NULL     , no_argument      , NULL,  0} };
 
 	while ((opt= getopt_long(argc, argv, short_options, long_options, &option_index)) != -1)
 	{
@@ -110,9 +122,31 @@ int read_args(int argc, char *argv[])
 		{
 			case 'k':
 				flash_kernel = 1;
+				if (optarg)
+				{
+					if (!strncmp(optarg, "mtd", 3))
+					{
+						printf("Flashing kernel with arg %s\n", optarg);
+						strcpy(kernel_mtd_device_arg, optarg);
+						user_mtd_kernel = 1;
+					}
+				}
+				else
+					printf("Flashing kernel\n");
 				break;
 			case 'r':
 				flash_rootfs = 1;
+				if (optarg)
+				{
+					if (!strncmp(optarg, "mtd", 3))
+					{
+						printf("Flashing rootfs with arg %s\n", optarg);
+						strcpy(rootfs_mtd_device_arg, optarg);
+						user_mtd_rootfs = 1;
+					}
+				}
+				else
+					printf("Flashing rootfs\n");
 				break;
 			case 'n':
 				no_write = 1;
@@ -140,6 +174,7 @@ int read_args(int argc, char *argv[])
 	}
 	else if (optind + 1 == argc)
 	{
+		printf("Searching image files in %s\n", argv[optind]);
 		if (!find_image_files(argv[optind]))
 			return 0;
 
@@ -151,7 +186,7 @@ int read_args(int argc, char *argv[])
 	}
 	else
 	{
-		printf("image_directory parameter missing\n\n");
+		printf("Error: Image_directory parameter missing!\n\n");
 		show_help = 1;
 		return 0;
 	}
@@ -180,6 +215,8 @@ int read_mtd_file()
 	char name [1000];
 	char dev_path[] = "/dev/";
 	int line_nr = 0;
+	unsigned long devsize;
+	int wrong_user_mtd = 0;
 
 	printf("Found /proc/mtd entries:\n");
 	printf("Device:   Size:     Erasesize:  Name:         Image:\n");
@@ -201,43 +238,139 @@ int read_mtd_file()
 		else
 		{
 			sscanf(line, "%s%s%s%s", dev, size, esize, name);
-			if (strcmp(name, "\"kernel\"") == 0
-			 || strcmp(name, "\"nkernel\"") == 0)
+			devsize = strtoul(size, 0, 16);
+			// KERNEL
+			if (user_mtd_kernel && (!strncmp(dev, kernel_mtd_device_arg, strlen(dev)-1)))
 			{
+				strcpy(&kernel_mtd_device[0], dev_path);
+				strcpy(&kernel_mtd_device[5], kernel_mtd_device_arg);
+				if (!access (kernel_mtd_device, F_OK)
+					&& kernel_file_stat.st_size <= devsize)
+				{
+					if ((strcmp(name, "\"kernel\"") == 0
+						|| strcmp(name, "\"nkernel\"") == 0))
+					{
+						if (kernel_filename[0] != '\0')
+							printf("%s %8s %9s %11s  ->  %s <- User selected!!\n", kernel_mtd_device, size, esize, name, kernel_filename);
+						else
+							printf("%s %8s %9s %11s  <-  User selected!!\n", kernel_mtd_device, size, esize, name);
+						found_mtd_kernel = 1;
+					}
+					else
+						printf("%s %8s %9s %11s  <-  Error: Selected by user is not a kernel mtd!!\n", kernel_mtd_device, size, esize, name);
+				}
+				else if (kernel_file_stat.st_size <= devsize)
+				{
+					printf("%s %8s %9s %11s  <-  Error: mtd doesn't exist!!\n", kernel_mtd_device, size, esize, name);
+					wrong_user_mtd = 1;
+				}
+				else
+				{
+					printf("%s %8s %9s %11s  <-  Error: Kernel file is bigger than device size!!\n", kernel_mtd_device, size, esize, name);
+					wrong_user_mtd = 1;
+				}
+			}
+			else if (strcmp(name, "\"kernel\"") == 0
+					|| strcmp(name, "\"nkernel\"") == 0)
+			{
+				if (found_mtd_kernel)
+				{
+					printf("%s %8s %9s %11s\n", kernel_mtd_device, size, esize, name);
+					continue;
+				}
 				if (dev[strlen(dev)-1] == ':') // cut ':'
 					dev[strlen(dev)-1] = '\0';
 				strcpy(&kernel_mtd_device[0], dev_path);
 				strcpy(&kernel_mtd_device[5], dev);
-				if (kernel_filename[0] != '\0')
-					printf("%s %8s %9s %11s  ->  %s\n", kernel_mtd_device, size, esize, name, kernel_filename);
+				if (!access (kernel_mtd_device, F_OK)
+					&& kernel_file_stat.st_size <= devsize)
+				{
+					if (kernel_filename[0] != '\0')
+						printf("%s %8s %9s %11s  ->  %s\n", kernel_mtd_device, size, esize, name, kernel_filename);
+					else
+						printf("%s %8s %9s %11s\n", kernel_mtd_device, size, esize, name);
+					found_mtd_kernel = 1;
+				}
+				else if (kernel_file_stat.st_size <= devsize)
+					printf("%s %8s %9s %11s  <-  Error: mtd doesn't exist!!\n", kernel_mtd_device, size, esize, name);
 				else
-					printf("%s %8s %9s %11s\n", kernel_mtd_device, size, esize, name);
-				found_mtd_kernel = 1;
+					printf("%s %8s %9s %11s  <-  Error: Kernel file is bigger than device size!!\n", kernel_mtd_device, size, esize, name);
 			}
-			if (strcmp(name, "\"rootfs\"") == 0)
+			// ROOTFS
+			else if (user_mtd_rootfs && (!strncmp(dev, rootfs_mtd_device_arg, strlen(dev)-1)))
 			{
+				strcpy(&rootfs_mtd_device[0], dev_path);
+				strcpy(&rootfs_mtd_device[5], rootfs_mtd_device_arg);
+				if (!access (rootfs_mtd_device, F_OK)
+					&& rootfs_file_stat.st_size <= devsize)
+				{
+					if (strcmp(name, "\"rootfs\"") == 0)
+					{
+						if (rootfs_filename[0] != '\0')
+							printf("%s %8s %9s %11s  ->  %s <- User selected!!\n", rootfs_mtd_device, size, esize, name, rootfs_filename);
+						else
+							printf("%s %8s %9s %11s  <-  User selected!!\n", rootfs_mtd_device, size, esize, name);
+						found_mtd_rootfs = 1;
+					}
+					else
+						printf("%s %8s %9s %11s  <-  Selected by user is not a rootfs mtd!!\n", rootfs_mtd_device, size, esize, name);
+				}
+				else if (rootfs_file_stat.st_size <= devsize)
+				{
+					printf("%s %8s %9s %11s  <-  Error: mtd doesn't exist!!\n", rootfs_mtd_device, size, esize, name);
+					wrong_user_mtd = 1;
+				}
+				else
+				{
+					printf("%s %8s %9s %11s  <-  Error: Rootfs file is bigger than device size!!\n", rootfs_mtd_device, size, esize, name);
+					wrong_user_mtd = 1;
+				}
+			}
+			else if (strcmp(name, "\"rootfs\"") == 0)
+			{
+				if (found_mtd_rootfs)
+				{
+					printf("%s %8s %9s %11s\n", rootfs_mtd_device, size, esize, name);
+					continue;
+				}
 				if (dev[strlen(dev)-1] == ':') // cut ':'
 					dev[strlen(dev)-1] = '\0';
-				if (strcmp(esize, "0001f000") != 0)
+				strcpy(&rootfs_mtd_device[0], dev_path);
+				strcpy(&rootfs_mtd_device[5], dev);
+				unsigned long devsize;
+				devsize = strtoul(size, 0, 16);
+				if (!access (rootfs_mtd_device, F_OK)
+					&& rootfs_file_stat.st_size <= devsize
+					&& strcmp(esize, "0001f000") != 0)
 				{
 					rootfs_mtd_num = atoi(&dev[strlen(dev)-1]);
-					strcpy(&rootfs_mtd_device[0], dev_path);
-					strcpy(&rootfs_mtd_device[5], dev);
 					if (rootfs_filename[0] != '\0')
 						printf("%s %8s %9s %11s  ->  %s\n", rootfs_mtd_device, size, esize, name, rootfs_filename);
 					else
 						printf("%s %8s %9s %11s\n", rootfs_mtd_device, size, esize, name);
 					found_mtd_rootfs = 1;
 				}
+				else if (strcmp(esize, "0001f000") == 0)
+					printf("%s%s %8s %9s %11s  <-  %s\n", dev_path, dev, size, esize, name, "Invalid erasesize");
+				else if (rootfs_file_stat.st_size <= devsize)
+					printf("%s %8s %9s %11s  <-  Error: mtd doesn't exist!!\n", rootfs_mtd_device, size, esize, name);
 				else
-				{
-					printf("%s%s %8s %9s %11s  ->  %s\n", dev_path, dev, size, esize, name, "invalid erasesize");
-				}
+					printf("%s %8s %9s %11s  <-  Error: Rootfs file is bigger than device size!!\n", rootfs_mtd_device, size, esize, name);
 			}
 		}
 	}
 
+	printf("Using kernel mtd device: %s\n", kernel_mtd_device);
+	printf("Using rootfs mtd device: %s\n", rootfs_mtd_device);
+
 	fclose(f);
+
+	if (wrong_user_mtd)
+	{
+		printf("Error: User selected mtd device cannot be used!\n");
+		return 0;
+	}
+
 	return 1;
 }
 
@@ -356,7 +489,7 @@ int setUbiDeviveName(int mtd_num, char* volume_name)
 
 int main(int argc, char *argv[])
 {
-	printf("\nofgwrite Utility v1.1\n");
+	printf("\nofgwrite Utility v1.2\n");
 	printf("Author: Betacentauri\n");
 	printf("Based upon: mtd-utils-native-1.4.9\n");
 	printf("Use at your own risk! Make always a backup before use!\n");
