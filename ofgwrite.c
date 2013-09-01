@@ -219,7 +219,7 @@ int read_mtd_file()
 	int wrong_user_mtd = 0;
 
 	printf("Found /proc/mtd entries:\n");
-	printf("Device:   Size:     Erasesize:  Name:         Image:\n");
+	printf("Device:   Size:     Erasesize:  Name:               Image:\n");
 	while (fgets(line, 1000, f) != NULL)
 	{
 		line_nr++;
@@ -238,6 +238,7 @@ int read_mtd_file()
 		else
 		{
 			sscanf(line, "%s%s%s%s", dev, size, esize, name);
+			printf("%s %12s %9s    %-18s", dev, size, esize, name);
 			devsize = strtoul(size, 0, 16);
 			// KERNEL
 			if (user_mtd_kernel && (!strncmp(dev, kernel_mtd_device_arg, strlen(dev)-1)))
@@ -251,22 +252,22 @@ int read_mtd_file()
 						|| strcmp(name, "\"nkernel\"") == 0))
 					{
 						if (kernel_filename[0] != '\0')
-							printf("%s %8s %9s %11s  ->  %s <- User selected!!\n", kernel_mtd_device, size, esize, name, kernel_filename);
+							printf("  ->  %s <- User selected!!\n", kernel_filename);
 						else
-							printf("%s %8s %9s %11s  <-  User selected!!\n", kernel_mtd_device, size, esize, name);
+							printf("  <-  User selected!!\n");
 						found_mtd_kernel = 1;
 					}
 					else
-						printf("%s %8s %9s %11s  <-  Error: Selected by user is not a kernel mtd!!\n", kernel_mtd_device, size, esize, name);
+						printf("  <-  Error: Selected by user is not a kernel mtd!!\n");
 				}
 				else if (kernel_file_stat.st_size <= devsize)
 				{
-					printf("%s %8s %9s %11s  <-  Error: mtd doesn't exist!!\n", kernel_mtd_device, size, esize, name);
+					printf("  <-  Error: mtd doesn't exist!!\n");
 					wrong_user_mtd = 1;
 				}
 				else
 				{
-					printf("%s %8s %9s %11s  <-  Error: Kernel file is bigger than device size!!\n", kernel_mtd_device, size, esize, name);
+					printf("  <-  Error: Kernel file is bigger than device size!!\n");
 					wrong_user_mtd = 1;
 				}
 			}
@@ -275,7 +276,7 @@ int read_mtd_file()
 			{
 				if (found_mtd_kernel)
 				{
-					printf("%s %8s %9s %11s\n", kernel_mtd_device, size, esize, name);
+					printf("\n");
 					continue;
 				}
 				if (dev[strlen(dev)-1] == ':') // cut ':'
@@ -286,15 +287,15 @@ int read_mtd_file()
 					&& kernel_file_stat.st_size <= devsize)
 				{
 					if (kernel_filename[0] != '\0')
-						printf("%s %8s %9s %11s  ->  %s\n", kernel_mtd_device, size, esize, name, kernel_filename);
+						printf("  ->  %s\n", kernel_filename);
 					else
-						printf("%s %8s %9s %11s\n", kernel_mtd_device, size, esize, name);
+						printf("\n");
 					found_mtd_kernel = 1;
 				}
 				else if (kernel_file_stat.st_size <= devsize)
-					printf("%s %8s %9s %11s  <-  Error: mtd doesn't exist!!\n", kernel_mtd_device, size, esize, name);
+					printf("  <-  Error: mtd doesn't exist!!\n");
 				else
-					printf("%s %8s %9s %11s  <-  Error: Kernel file is bigger than device size!!\n", kernel_mtd_device, size, esize, name);
+					printf("  <-  Error: Kernel file is bigger than device size!!\n");
 			}
 			// ROOTFS
 			else if (user_mtd_rootfs && (!strncmp(dev, rootfs_mtd_device_arg, strlen(dev)-1)))
@@ -307,22 +308,22 @@ int read_mtd_file()
 					if (strcmp(name, "\"rootfs\"") == 0)
 					{
 						if (rootfs_filename[0] != '\0')
-							printf("%s %8s %9s %11s  ->  %s <- User selected!!\n", rootfs_mtd_device, size, esize, name, rootfs_filename);
+							printf("  ->  %s <- User selected!!\n", rootfs_filename);
 						else
-							printf("%s %8s %9s %11s  <-  User selected!!\n", rootfs_mtd_device, size, esize, name);
+							printf("  <-  User selected!!\n");
 						found_mtd_rootfs = 1;
 					}
 					else
-						printf("%s %8s %9s %11s  <-  Selected by user is not a rootfs mtd!!\n", rootfs_mtd_device, size, esize, name);
+						printf("  <-  Selected by user is not a rootfs mtd!!\n");
 				}
 				else if (rootfs_file_stat.st_size <= devsize)
 				{
-					printf("%s %8s %9s %11s  <-  Error: mtd doesn't exist!!\n", rootfs_mtd_device, size, esize, name);
+					printf("  <-  Error: mtd doesn't exist!!\n");
 					wrong_user_mtd = 1;
 				}
 				else
 				{
-					printf("%s %8s %9s %11s  <-  Error: Rootfs file is bigger than device size!!\n", rootfs_mtd_device, size, esize, name);
+					printf("  <-  Error: Rootfs file is bigger than device size!!\n");
 					wrong_user_mtd = 1;
 				}
 			}
@@ -330,7 +331,7 @@ int read_mtd_file()
 			{
 				if (found_mtd_rootfs)
 				{
-					printf("%s %8s %9s %11s\n", rootfs_mtd_device, size, esize, name);
+					printf("\n");
 					continue;
 				}
 				if (dev[strlen(dev)-1] == ':') // cut ':'
@@ -345,18 +346,20 @@ int read_mtd_file()
 				{
 					rootfs_mtd_num = atoi(&dev[strlen(dev)-1]);
 					if (rootfs_filename[0] != '\0')
-						printf("%s %8s %9s %11s  ->  %s\n", rootfs_mtd_device, size, esize, name, rootfs_filename);
+						printf("  ->  %s\n", rootfs_filename);
 					else
-						printf("%s %8s %9s %11s\n", rootfs_mtd_device, size, esize, name);
+						printf("\n");
 					found_mtd_rootfs = 1;
 				}
 				else if (strcmp(esize, "0001f000") == 0)
-					printf("%s%s %8s %9s %11s  <-  %s\n", dev_path, dev, size, esize, name, "Invalid erasesize");
+					printf("  <-  Invalid erasesize\n");
 				else if (rootfs_file_stat.st_size <= devsize)
-					printf("%s %8s %9s %11s  <-  Error: mtd doesn't exist!!\n", rootfs_mtd_device, size, esize, name);
+					printf("  <-  Error: mtd doesn't exist!!\n");
 				else
-					printf("%s %8s %9s %11s  <-  Error: Rootfs file is bigger than device size!!\n", rootfs_mtd_device, size, esize, name);
+					printf("  <-  Error: Rootfs file is bigger than device size!!\n");
 			}
+			else
+				printf("\n");
 		}
 	}
 
@@ -489,7 +492,7 @@ int setUbiDeviveName(int mtd_num, char* volume_name)
 
 int main(int argc, char *argv[])
 {
-	printf("\nofgwrite Utility v1.2\n");
+	printf("\nofgwrite Utility v1.3\n");
 	printf("Author: Betacentauri\n");
 	printf("Based upon: mtd-utils-native-1.4.9\n");
 	printf("Use at your own risk! Make always a backup before use!\n");
