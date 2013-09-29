@@ -487,7 +487,7 @@ int setUbiDeviveName(int mtd_num, char* volume_name)
 
 int main(int argc, char *argv[])
 {
-	printf("\nofgwrite Utility v1.4\n");
+	printf("\nofgwrite Utility v1.5\n");
 	printf("Author: Betacentauri\n");
 	printf("Based upon: mtd-utils-native-1.4.9\n");
 	printf("Use at your own risk! Make always a backup before use!\n");
@@ -583,11 +583,13 @@ int main(int argc, char *argv[])
 		syslog(LOG_INFO, "switched to user mode 2");
 		sleep(1);
 
-		// kill nmbd and smbd -> otherwise remounting root read-only is not possible
+		// kill nmbd, smbd, rpc.mountd and rpc.statd -> otherwise remounting root read-only is not possible
 		if (!no_write)
 		{
 			ret = system("killall nmbd");
 			ret = system("killall smbd");
+			ret = system("killall rpc.mountd");
+			ret = system("killall rpc.statd");
 			// ignore return values, because the processes might not run
 		}
 
