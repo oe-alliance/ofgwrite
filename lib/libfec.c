@@ -230,7 +230,7 @@ my_malloc(int sz, const char *err_string)
 {
     void *p = malloc( sz );
     if (p == NULL) {
-	fprintf(stderr, "-- malloc failure allocating %s\n", err_string);
+	my_fprintf(stderr, "-- malloc failure allocating %s\n", err_string);
 	exit(1) ;
     }
     return p ;
@@ -451,14 +451,14 @@ invert_mat(gf *src, int k)
 			    goto found_piv ;
 			}
 		    } else if (ipiv[ix] > 1) {
-			fprintf(stderr, "singular matrix\n");
+			my_fprintf(stderr, "singular matrix\n");
 			goto fail ;
 		    }
 		}
 	    }
 	}
 	if (icol == -1) {
-	    fprintf(stderr, "XXX pivot not found!\n");
+	    my_fprintf(stderr, "XXX pivot not found!\n");
 	    goto fail ;
 	}
 found_piv:
@@ -478,7 +478,7 @@ found_piv:
 	pivot_row = &src[icol*k] ;
 	c = pivot_row[icol] ;
 	if (c == 0) {
-	    fprintf(stderr, "singular matrix 2\n");
+	    my_fprintf(stderr, "singular matrix 2\n");
 	    goto fail ;
 	}
 	if (c != 1 ) { /* otherwhise this is a NOP */
@@ -513,9 +513,9 @@ found_piv:
     } /* done all columns */
     for (col = k-1 ; col >= 0 ; col-- ) {
 	if (indxr[col] <0 || indxr[col] >= k)
-	    fprintf(stderr, "AARGH, indxr[col] %d\n", indxr[col]);
+	    my_fprintf(stderr, "AARGH, indxr[col] %d\n", indxr[col]);
 	else if (indxc[col] <0 || indxc[col] >= k)
-	    fprintf(stderr, "AARGH, indxc[col] %d\n", indxc[col]);
+	    my_fprintf(stderr, "AARGH, indxc[col] %d\n", indxc[col]);
 	else
 	if (indxr[col] != indxc[col] ) {
 	    for (row = 0 ; row < k ; row++ ) {
@@ -608,11 +608,11 @@ init_fec(void)
     TICK(ticks[0]);
     generate_gf();
     TOCK(ticks[0]);
-    DDB(fprintf(stderr, "generate_gf took %ldus\n", ticks[0]);)
+    DDB(my_fprintf(stderr, "generate_gf took %ldus\n", ticks[0]);)
     TICK(ticks[0]);
     init_mul_table();
     TOCK(ticks[0]);
-    DDB(fprintf(stderr, "init_mul_table took %ldus\n", ticks[0]);)
+    DDB(my_fprintf(stderr, "init_mul_table took %ldus\n", ticks[0]);)
     fec_initialized = 1 ;
 }
 
@@ -636,7 +636,7 @@ void
 fec_free(struct fec_parms *p)
 {
     if (p==NULL || p->magic != COMP_FEC_MAGIC(p)) {
-	fprintf(stderr, "bad parameters to fec_free\n");
+	my_fprintf(stderr, "bad parameters to fec_free\n");
 	return ;
     }
     free(p->enc_matrix);
@@ -659,7 +659,7 @@ fec_new(int k, int n)
 	init_fec();
 
     if (k > GF_SIZE + 1 || n > GF_SIZE + 1 || k > n ) {
-	fprintf(stderr, "Invalid parameters k %d n %d GF_SIZE %d\n",
+	my_fprintf(stderr, "Invalid parameters k %d n %d GF_SIZE %d\n",
 		k, n, GF_SIZE );
 	return NULL ;
     }
@@ -698,7 +698,7 @@ fec_new(int k, int n)
     free(tmp_m);
     TOCK(ticks[3]);
 
-    DDB(fprintf(stderr, "--- %ld us to build encoding matrix\n",
+    DDB(my_fprintf(stderr, "--- %ld us to build encoding matrix\n",
 	    ticks[3]);)
     DEB(pr_matrix(retval->enc_matrix, n, k, "encoding_matrix");)
     return retval ;
@@ -726,7 +726,7 @@ fec_encode(struct fec_parms *code, gf *src[], gf *fec, int index, int sz)
 	for (i = 0; i < k ; i++)
 	    addmul(fec, src[i], p[i], sz ) ;
     } else
-	fprintf(stderr, "Invalid index %d (max %d)\n",
+	my_fprintf(stderr, "Invalid index %d (max %d)\n",
 	    index, code->n - 1 );
 }
 
@@ -746,7 +746,7 @@ void fec_encode_linear(struct fec_parms *code, gf *src, gf *fec, int index, int 
 	for (i = 0; i < k ; i++)
 	    addmul(fec, src + (i * sz), p[i], sz ) ;
     } else
-	fprintf(stderr, "Invalid index %d (max %d)\n",
+	my_fprintf(stderr, "Invalid index %d (max %d)\n",
 	    index, code->n - 1 );
 }
 /*
@@ -767,7 +767,7 @@ shuffle(gf *pkt[], int index[], int k)
 	    int c = index[i] ;
 
 	    if (index[c] == c) {
-		DEB(fprintf(stderr, "\nshuffle, error at %d\n", i);)
+		DEB(my_fprintf(stderr, "\nshuffle, error at %d\n", i);)
 		return 1 ;
 	    }
 	    SWAP(index[i], index[c], int) ;
@@ -777,9 +777,9 @@ shuffle(gf *pkt[], int index[], int k)
     DEB( /* just test that it works... */
     for ( i = 0 ; i < k ; i++ ) {
 	if (index[i] < k && index[i] != i) {
-	    fprintf(stderr, "shuffle: after\n");
-	    for (i=0; i<k ; i++) fprintf(stderr, "%3d ", index[i]);
-	    fprintf(stderr, "\n");
+	    my_fprintf(stderr, "shuffle: after\n");
+	    for (i=0; i<k ; i++) my_fprintf(stderr, "%3d ", index[i]);
+	    my_fprintf(stderr, "\n");
 	    return 1 ;
 	}
     }
@@ -809,7 +809,7 @@ build_decode_matrix(struct fec_parms *code, int index[])
 	if (index[i] < code->n )
 	    memcpy(p,  &(code->enc_matrix[index[i]*k]), k*sizeof(gf) );
 	else {
-	    fprintf(stderr, "decode: invalid index %d (max %d)\n",
+	    my_fprintf(stderr, "decode: invalid index %d (max %d)\n",
 		index[i], code->n - 1 );
 	    free(matrix) ;
 	    return NULL ;
@@ -890,16 +890,16 @@ test_gf(void)
      */
     for (i=0; i<= GF_SIZE; i++) {
         if (gf_exp[gf_log[i]] != i)
-	    fprintf(stderr, "bad exp/log i %d log %d exp(log) %d\n",
+	    my_fprintf(stderr, "bad exp/log i %d log %d exp(log) %d\n",
 		i, gf_log[i], gf_exp[gf_log[i]]);
 
         if (i != 0 && gf_mul(i, inverse[i]) != 1)
-	    fprintf(stderr, "bad mul/inv i %d inv %d i*inv(i) %d\n",
+	    my_fprintf(stderr, "bad mul/inv i %d inv %d i*inv(i) %d\n",
 		i, inverse[i], gf_mul(i, inverse[i]) );
 	if (gf_mul(0,i) != 0)
-	    fprintf(stderr, "bad mul table 0,%d\n",i);
+	    my_fprintf(stderr, "bad mul table 0,%d\n",i);
 	if (gf_mul(i,0) != 0)
-	    fprintf(stderr, "bad mul table %d,0\n",i);
+	    my_fprintf(stderr, "bad mul table %d,0\n",i);
     }
 }
 #endif /* TEST */

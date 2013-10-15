@@ -93,7 +93,7 @@ int ubi_scan(struct mtd_dev_info *mtd, int fd, struct ubi_scan_info **info,
 			si->bad_cnt += 1;
 			si->ec[eb] = EB_BAD;
 			if (v)
-				printf(": bad\n");
+				my_printf(": bad\n");
 			continue;
 		}
 
@@ -106,12 +106,12 @@ int ubi_scan(struct mtd_dev_info *mtd, int fd, struct ubi_scan_info **info,
 				si->empty_cnt += 1;
 				si->ec[eb] = EB_EMPTY;
 				if (v)
-					printf(": empty\n");
+					my_printf(": empty\n");
 			} else {
 				si->alien_cnt += 1;
 				si->ec[eb] = EB_ALIEN;
 				if (v)
-					printf(": alien\n");
+					my_printf(": alien\n");
 			}
 			continue;
 		}
@@ -121,7 +121,7 @@ int ubi_scan(struct mtd_dev_info *mtd, int fd, struct ubi_scan_info **info,
 			si->corrupted_cnt += 1;
 			si->ec[eb] = EB_CORRUPTED;
 			if (v)
-				printf(": bad CRC %#08x, should be %#08x\n",
+				my_printf(": bad CRC %#08x, should be %#08x\n",
 				       crc, be32_to_cpu(ech.hdr_crc));
 			continue;
 		}
@@ -129,7 +129,7 @@ int ubi_scan(struct mtd_dev_info *mtd, int fd, struct ubi_scan_info **info,
 		ec = be64_to_cpu(ech.ec);
 		if (ec > EC_MAX) {
 			if (pr)
-				printf("\n");
+				my_printf("\n");
 			errmsg("erase counter in EB %d is %llu, while this "
 			       "program expects them to be less than %u",
 			       eb, ec, EC_MAX);
@@ -141,9 +141,9 @@ int ubi_scan(struct mtd_dev_info *mtd, int fd, struct ubi_scan_info **info,
 			si->data_offs = be32_to_cpu(ech.data_offset);
 			if (si->data_offs % mtd->min_io_size) {
 				if (pr)
-					printf("\n");
+					my_printf("\n");
 				if (v)
-					printf(": corrupted because of the below\n");
+					my_printf(": corrupted because of the below\n");
 				warnmsg("bad data offset %d at eraseblock %d (n"
 					"of multiple of min. I/O unit size %d)",
 					si->data_offs, eb, mtd->min_io_size);
@@ -156,9 +156,9 @@ int ubi_scan(struct mtd_dev_info *mtd, int fd, struct ubi_scan_info **info,
 		} else {
 			if ((int)be32_to_cpu(ech.vid_hdr_offset) != si->vid_hdr_offs) {
 				if (pr)
-					printf("\n");
+					my_printf("\n");
 				if (v)
-					printf(": corrupted because of the below\n");
+					my_printf(": corrupted because of the below\n");
 				warnmsg("inconsistent VID header offset: was "
 					"%d, but is %d in eraseblock %d",
 					si->vid_hdr_offs,
@@ -170,9 +170,9 @@ int ubi_scan(struct mtd_dev_info *mtd, int fd, struct ubi_scan_info **info,
 			}
 			if ((int)be32_to_cpu(ech.data_offset) != si->data_offs) {
 				if (pr)
-					printf("\n");
+					my_printf("\n");
 				if (v)
-					printf(": corrupted because of the below\n");
+					my_printf(": corrupted because of the below\n");
 				warnmsg("inconsistent data offset: was %d, but"
 					" is %d in eraseblock %d",
 					si->data_offs,
@@ -187,7 +187,7 @@ int ubi_scan(struct mtd_dev_info *mtd, int fd, struct ubi_scan_info **info,
 		si->ok_cnt += 1;
 		si->ec[eb] = ec;
 		if (v)
-			printf(": OK, erase counter %u\n", si->ec[eb]);
+			my_printf(": OK, erase counter %u\n", si->ec[eb]);
 	}
 
 	if (si->ok_cnt != 0) {
@@ -207,7 +207,7 @@ int ubi_scan(struct mtd_dev_info *mtd, int fd, struct ubi_scan_info **info,
 
 	*info = si;
 	if (pr)
-		printf("\n");
+		my_printf("\n");
 	return 0;
 
 out_ec:

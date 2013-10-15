@@ -58,7 +58,7 @@ extern "C" {
 
 /* Normal messages */
 #define normsg_cont(fmt, ...) do {                                 \
-	printf("%s: " fmt, PROGRAM_NAME, ##__VA_ARGS__);           \
+	my_printf("%s: " fmt, PROGRAM_NAME, ##__VA_ARGS__);           \
 } while(0)
 #define normsg(fmt, ...) do {                                      \
 	normsg_cont(fmt "\n", ##__VA_ARGS__);                      \
@@ -66,7 +66,7 @@ extern "C" {
 
 /* Error messages */
 #define errmsg(fmt, ...)  ({                                                \
-	fprintf(stderr, "%s: error!: " fmt "\n", PROGRAM_NAME, ##__VA_ARGS__); \
+	my_fprintf(stderr, "%s: error!: " fmt "\n", PROGRAM_NAME, ##__VA_ARGS__); \
 	-1;                                                                 \
 })
 #define errmsg_die(fmt, ...) do {                                           \
@@ -77,7 +77,7 @@ extern "C" {
 #define sys_errmsg(fmt, ...)  ({                                            \
 	int _err = errno;                                                   \
 	errmsg(fmt, ##__VA_ARGS__);                                         \
-	fprintf(stderr, "%*serror %d (%s)\n", (int)sizeof(PROGRAM_NAME) + 1,\
+	my_fprintf(stderr, "%*serror %d (%s)\n", (int)sizeof(PROGRAM_NAME) + 1,\
 		"", _err, strerror(_err));                                  \
 	-1;                                                                 \
 })
@@ -87,7 +87,7 @@ extern "C" {
 
 /* Warnings */
 #define warnmsg(fmt, ...) do {                                                \
-	fprintf(stderr, "%s: warning!: " fmt "\n", PROGRAM_NAME, ##__VA_ARGS__); \
+	my_fprintf(stderr, "%s: warning!: " fmt "\n", PROGRAM_NAME, ##__VA_ARGS__); \
 } while(0)
 
 static inline int is_power_of_2(unsigned long long n)
@@ -132,7 +132,7 @@ simple_strtoX(strtoull, unsigned long long int)
 /* Simple version-printing for utils */
 #define common_print_version() \
 do { \
-	printf("%s %s\n", PROGRAM_NAME, VERSION); \
+	my_printf("%s %s\n", PROGRAM_NAME, VERSION); \
 } while (0)
 
 #include "xalloc.h"

@@ -76,7 +76,7 @@ long long ubiutils_get_bytes(const char *str)
 	long long bytes = strtoull(str, &endp, 0);
 
 	if (endp == str || bytes < 0) {
-		fprintf(stderr, "incorrect amount of bytes: \"%s\"\n", str);
+		my_fprintf(stderr, "incorrect amount of bytes: \"%s\"\n", str);
 		return -1;
 	}
 
@@ -84,7 +84,7 @@ long long ubiutils_get_bytes(const char *str)
 		int mult = get_multiplier(endp);
 
 		if (mult == -1) {
-			fprintf(stderr, "bad size specifier: \"%s\" - "
+			my_fprintf(stderr, "bad size specifier: \"%s\" - "
 			        "should be 'KiB', 'MiB' or 'GiB'\n", endp);
 			return -1;
 		}
@@ -113,19 +113,19 @@ void ubiutils_print_bytes(long long bytes, int bracket)
 	else
 		p = ", ";
 
-	printf("%lld bytes", bytes);
+	my_printf("%lld bytes", bytes);
 
 	if (bytes > 1024 * 1024 * 1024)
-		printf("%s%.1f GiB", p, (double)bytes / (1024 * 1024 * 1024));
+		my_printf("%s%.1f GiB", p, (double)bytes / (1024 * 1024 * 1024));
 	else if (bytes > 1024 * 1024)
-		printf("%s%.1f MiB", p, (double)bytes / (1024 * 1024));
+		my_printf("%s%.1f MiB", p, (double)bytes / (1024 * 1024));
 	else if (bytes > 1024 && bytes != 0)
-		printf("%s%.1f KiB", p, (double)bytes / 1024);
+		my_printf("%s%.1f KiB", p, (double)bytes / 1024);
 	else
 		return;
 
 	if (bracket)
-		printf(")");
+		my_printf(")");
 }
 
 /**
@@ -144,7 +144,7 @@ void ubiutils_print_text(FILE *stream, const char *text, int width)
 	char line[1024];
 
 	if (width > 1023) {
-		fprintf(stream, "%s\n", text);
+		my_fprintf(stream, "%s\n", text);
 		return;
 	}
 	p = text;
@@ -157,7 +157,7 @@ void ubiutils_print_text(FILE *stream, const char *text, int width)
 			++pos;
 			if (pos == width) {
 				line[pos] = '\0';
-				fprintf(stream, "%s\n", line);
+				my_fprintf(stream, "%s\n", line);
 				p += pos;
 				pos = 0;
 			}
@@ -173,7 +173,7 @@ void ubiutils_print_text(FILE *stream, const char *text, int width)
 			++pos;
 		}
 		line[bpos] = '\0';
-		fprintf(stream, "%s\n", line);
+		my_fprintf(stream, "%s\n", line);
 		p += bpos;
 		pos = 0;
 		while (p[pos] && isspace(p[pos]))

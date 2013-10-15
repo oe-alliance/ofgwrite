@@ -216,16 +216,16 @@ static int parse_opt(int argc, char * const argv[])
 
 		case 'h':
 		case '?':
-			printf("%s\n\n", doc);
-			printf("%s\n\n", usage);
-			printf("%s\n", optionsstr);
+			my_printf("%s\n\n", doc);
+			my_printf("%s\n\n", usage);
+			my_printf("%s\n", optionsstr);
 			exit(EXIT_SUCCESS);
 
 		case ':':
 			return errmsg("parameter is missing");
 
 		default:
-			fprintf(stderr, "Use -h for help\n");
+			my_fprintf(stderr, "Use -h for help\n");
 			return -1;
 		}
 	}
@@ -292,12 +292,12 @@ static void print_bad_eraseblocks(const struct mtd_dev_info *mtd,
 		if (si->ec[eb] != EB_BAD)
 			continue;
 		if (first) {
-			printf("%d", eb);
+			my_printf("%d", eb);
 			first = 0;
 		} else
-			printf(", %d", eb);
+			my_printf(", %d", eb);
 	}
-	printf("\n");
+	my_printf("\n");
 }
 
 static int change_ech(struct ubi_ec_hdr *hdr, uint32_t image_seq,
@@ -404,7 +404,7 @@ static int consecutive_bad_check(int eb)
 
 	if (consecutive_bad_blocks >= MAX_CONSECUTIVE_BAD_BLOCKS) {
 		if (!args.quiet)
-			printf("\n");
+			my_printf("\n");
 		return errmsg("consecutive bad blocks exceed limit: %d, bad flash?",
 		              MAX_CONSECUTIVE_BAD_BLOCKS);
 	}
@@ -427,11 +427,11 @@ static int mark_bad(const struct mtd_dev_info *mtd, struct ubi_scan_info *si, in
 		normsg_cont("marking block %d bad", eb);
 
 	if (!args.quiet)
-		printf("\n");
+		my_printf("\n");
 
 	if (!mtd->bb_allowed) {
 		if (!args.quiet)
-			printf("\n");
+			my_printf("\n");
 		return errmsg("bad blocks not supported by this flash");
 	}
 
@@ -495,7 +495,7 @@ static int flash_image(libmtd_t libmtd, const struct mtd_dev_info *mtd,
 		err = mtd_erase(libmtd, mtd, args.node_fd, eb);
 		if (err) {
 			if (!args.quiet)
-				printf("\n");
+				my_printf("\n");
 			sys_errmsg("failed to erase eraseblock %d", eb);
 
 			if (errno != EIO)
@@ -525,7 +525,7 @@ static int flash_image(libmtd_t libmtd, const struct mtd_dev_info *mtd,
 			ec = si->mean_ec;
 
 		if (args.verbose) {
-			printf(", change EC to %lld", ec);
+			my_printf(", change EC to %lld", ec);
 			fflush(stdout);
 		}
 
@@ -537,7 +537,7 @@ static int flash_image(libmtd_t libmtd, const struct mtd_dev_info *mtd,
 		}
 
 		if (args.verbose) {
-			printf(", write data\n");
+			my_printf(", write data\n");
 			fflush(stdout);
 		}
 
@@ -570,7 +570,7 @@ static int flash_image(libmtd_t libmtd, const struct mtd_dev_info *mtd,
 	}
 
 	if (!args.quiet && !args.verbose)
-		printf("\n");
+		my_printf("\n");
 	close(fd);
 	return eb + 1;
 
@@ -625,7 +625,7 @@ static int format(libmtd_t libmtd, const struct mtd_dev_info *mtd,
 		err = mtd_erase(libmtd, mtd, args.node_fd, eb);
 		if (err) {
 			if (!args.quiet)
-				printf("\n");
+				my_printf("\n");
 
 			sys_errmsg("failed to erase eraseblock %d", eb);
 			if (errno != EIO)
@@ -645,12 +645,12 @@ static int format(libmtd_t libmtd, const struct mtd_dev_info *mtd,
 				ec2 = ec;
 			}
 			if (args.verbose)
-				printf(", do not write EC, leave for vtbl\n");
+				my_printf(", do not write EC, leave for vtbl\n");
 			continue;
 		}
 
 		if (args.verbose) {
-			printf(", write EC %lld\n", ec);
+			my_printf(", write EC %lld\n", ec);
 			fflush(stdout);
 		}
 
@@ -658,7 +658,7 @@ static int format(libmtd_t libmtd, const struct mtd_dev_info *mtd,
 				write_size, NULL, 0, 0);
 		if (err) {
 			if (!args.quiet && !args.verbose)
-				printf("\n");
+				my_printf("\n");
 			sys_errmsg("cannot write EC header (%d bytes buffer) to eraseblock %d",
 				   write_size, eb);
 
@@ -680,7 +680,7 @@ static int format(libmtd_t libmtd, const struct mtd_dev_info *mtd,
 	}
 
 	if (!args.quiet && !args.verbose)
-		printf("\n");
+		my_printf("\n");
 
 	if (!novtbl) {
 		if (eb1 == -1 || eb2 == -1) {
@@ -826,9 +826,9 @@ int ubiformat_main(int argc, char * const argv[])
 	if (!args.quiet) {
 		normsg_cont("mtd%d (%s), size ", mtd.mtd_num, mtd.type_str);
 		ubiutils_print_bytes(mtd.size, 1);
-		printf(", %d eraseblocks of ", mtd.eb_cnt);
+		my_printf(", %d eraseblocks of ", mtd.eb_cnt);
 		ubiutils_print_bytes(mtd.eb_size, 1);
-		printf(", min. I/O size %d bytes\n", mtd.min_io_size);
+		my_printf(", min. I/O size %d bytes\n", mtd.min_io_size);
 	}
 
 	if (args.quiet)
@@ -871,7 +871,7 @@ int ubiformat_main(int argc, char * const argv[])
 				si->alien_cnt, si->good_cnt);
 		if (!args.yes && want_exit()) {
 			if (args.yes && !args.quiet)
-				printf("yes\n");
+				my_printf("yes\n");
 			goto out_free;
 		}
 	}
@@ -891,7 +891,7 @@ int ubiformat_main(int argc, char * const argv[])
 				normsg("note, arbitrary erase counter value may be specified using -e option");
 			if (!args.yes && want_exit()) {
 				if (args.yes && !args.quiet)
-					printf("yes\n");
+					my_printf("yes\n");
 				goto out_free;
 			}
 			 args.ec = 0;
@@ -904,7 +904,7 @@ int ubiformat_main(int argc, char * const argv[])
 				       si->mean_ec);
 			if (!args.yes && want_exit()) {
 				if (args.yes && !args.quiet)
-					printf("yes\n");
+					my_printf("yes\n");
 				goto out_free;
 			}
 			args.ec = si->mean_ec;
@@ -933,7 +933,7 @@ int ubiformat_main(int argc, char * const argv[])
 		}
 		if (args.yes || answer_is_yes()) {
 			if (args.yes && !args.quiet)
-				printf("yes\n");
+				my_printf("yes\n");
 		} else
 			ubigen_info_init(&ui, mtd.eb_size, mtd.min_io_size, 0,
 					 si->vid_hdr_offs, args.ubi_ver,

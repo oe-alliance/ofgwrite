@@ -45,7 +45,7 @@
 
 static void display_help(void)
 {
-	printf(
+	my_printf(
 "Usage: nandwrite [OPTION] MTD_DEVICE [INPUTFILE|-]\n"
 "Writes to the specified MTD device.\n"
 "\n"
@@ -67,7 +67,7 @@ static void display_help(void)
 
 static void display_version(void)
 {
-	printf("%1$s " VERSION "\n"
+	my_printf("%1$s " VERSION "\n"
 			"\n"
 			"Copyright (C) 2003 Thomas Gleixner \n"
 			"\n"
@@ -335,14 +335,14 @@ int nandwrite_main(int argc, char * const argv[])
 
 	/* Check, if file is page-aligned */
 	if ((!pad) && ((imglen % pagelen) != 0)) {
-		fprintf(stderr, "Input file is not page-aligned. Use the padding "
+		my_fprintf(stderr, "Input file is not page-aligned. Use the padding "
 				 "option.\n");
 		goto closeall;
 	}
 
 	/* Check, if length fits into device */
 	if (((imglen / pagelen) * mtd.min_io_size) > (mtd.size - mtdoffset)) {
-		fprintf(stderr, "Image %d bytes, NAND page %d bytes, OOB area %d"
+		my_fprintf(stderr, "Image %d bytes, NAND page %d bytes, OOB area %d"
 				" bytes, device size %lld bytes\n",
 				imglen, pagelen, mtd.oob_size, mtd.size);
 		sys_errmsg("Input file does not fit into device");
@@ -392,7 +392,7 @@ int nandwrite_main(int argc, char * const argv[])
 
 			baderaseblock = false;
 			if (!quiet)
-				fprintf(stdout, "Writing data to block %lld at offset 0x%llx\n",
+				my_fprintf(stdout, "Writing data to block %lld at offset 0x%llx\n",
 						 blockstart / ebsize_aligned, blockstart);
 
 			/* Check all the blocks in an erase block for bad blocks */
@@ -405,7 +405,7 @@ int nandwrite_main(int argc, char * const argv[])
 				} else if (ret == 1) {
 					baderaseblock = true;
 					if (!quiet)
-						fprintf(stderr, "Bad block at %llx, %u block(s) "
+						my_fprintf(stderr, "Bad block at %llx, %u block(s) "
 								"from %llx will be skipped\n",
 								offs, blockalign, blockstart);
 				}
@@ -452,7 +452,7 @@ int nandwrite_main(int argc, char * const argv[])
 			/* Padding */
 			if (tinycnt < readlen) {
 				if (!pad) {
-					fprintf(stderr, "Unexpected EOF. Expecting at least "
+					my_fprintf(stderr, "Unexpected EOF. Expecting at least "
 							"%d more bytes. Use the padding option.\n",
 							readlen - tinycnt);
 					goto closeall;
@@ -491,7 +491,7 @@ int nandwrite_main(int argc, char * const argv[])
 				}
 
 				if (tinycnt < readlen) {
-					fprintf(stderr, "Unexpected EOF. Expecting at least "
+					my_fprintf(stderr, "Unexpected EOF. Expecting at least "
 							"%d more bytes for OOB\n", readlen - tinycnt);
 					goto closeall;
 				}
@@ -525,7 +525,7 @@ int nandwrite_main(int argc, char * const argv[])
 			/* Must rewind to blockstart if we can */
 			writebuf = filebuf;
 
-			fprintf(stderr, "Erasing failed write from %#08llx to %#08llx\n",
+			my_fprintf(stderr, "Erasing failed write from %#08llx to %#08llx\n",
 				blockstart, blockstart + ebsize_aligned - 1);
 			for (i = blockstart; i < blockstart + ebsize_aligned; i += mtd.eb_size) {
 				if (mtd_erase(mtd_desc, &mtd, fd, i / mtd.eb_size)) {
@@ -538,7 +538,7 @@ int nandwrite_main(int argc, char * const argv[])
 			}
 
 			if (markbad) {
-				fprintf(stderr, "Marking block at %08llx bad\n",
+				my_fprintf(stderr, "Marking block at %08llx bad\n",
 						mtdoffset & (~mtd.eb_size + 1));
 				if (mtd_mark_bad(&mtd, fd, mtdoffset / mtd.eb_size)) {
 					sys_errmsg("%s: MTD Mark bad block failure", mtd_device);

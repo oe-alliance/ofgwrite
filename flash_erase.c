@@ -59,7 +59,7 @@ static void show_progress(struct mtd_dev_info *mtd, uint64_t start, int eb,
 
 static void display_help (void)
 {
-	printf("Usage: %s [options] MTD_DEVICE <start offset> <block count>\n"
+	my_printf("Usage: %s [options] MTD_DEVICE <start offset> <block count>\n"
 			"Erase blocks of the specified MTD device.\n"
 			"Specify a count of 0 to erase to end of device.\n"
 			"\n"
@@ -75,7 +75,7 @@ static void display_help (void)
 
 static void display_version (void)
 {
-	printf("%1$s version " VERSION "\n"
+	my_printf("%1$s version " VERSION "\n"
 			"\n"
 			"Copyright (C) 2000 Arcom Control Systems Ltd\n"
 			"\n"

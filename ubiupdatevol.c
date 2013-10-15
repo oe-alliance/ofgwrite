@@ -96,9 +96,9 @@ static int parse_opt(int argc, char * const argv[])
 
 		case 'h':
 		case '?':
-			printf("%s\n\n", doc);
-			printf("%s\n\n", usage);
-			printf("%s\n", optionsstr);
+			my_printf("%s\n\n", doc);
+			my_printf("%s\n\n", usage);
+			my_printf("%s\n", optionsstr);
 			exit(EXIT_SUCCESS);
 
 		case 'V':
@@ -109,7 +109,7 @@ static int parse_opt(int argc, char * const argv[])
 			return errmsg("parameter is missing");
 
 		default:
-			fprintf(stderr, "Use -h for help\n");
+			my_fprintf(stderr, "Use -h for help\n");
 			return -1;
 		}
 	}
