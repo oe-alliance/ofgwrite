@@ -670,7 +670,7 @@ int main(int argc, char *argv[])
 				return -1;
 			}
 		}
-		sleep(1);
+		sleep(4);
 
 		// kill nmbd, smbd, rpc.mountd and rpc.statd -> otherwise remounting root read-only is not possible
 		if (!no_write)
@@ -679,6 +679,8 @@ int main(int argc, char *argv[])
 			ret = system("killall smbd");
 			ret = system("killall rpc.mountd");
 			ret = system("killall rpc.statd");
+			ret = system("/etc/init.d/softcam stop");
+			ret = system("killall CCcam");
 			// ignore return values, because the processes might not run
 		}
 
@@ -720,10 +722,10 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 
-		my_printf("Successfully flashed rootfs! Rebooting in 5 seconds...\n");
+		my_printf("Successfully flashed rootfs! Rebooting in 3 seconds...\n");
 		fflush(stdout);
 		fflush(stderr);
-		sleep(5);
+		sleep(3);
 		if (!no_write)
 		{
 			reboot(LINUX_REBOOT_CMD_RESTART);
