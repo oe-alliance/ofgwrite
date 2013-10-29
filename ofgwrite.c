@@ -10,6 +10,8 @@
 #include <syslog.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <libmtd.h>
+#include <errno.h>
 
 
 int flash_kernel = 0;
@@ -31,6 +33,10 @@ char rootfs_ubi_device[1000];
 int rootfs_mtd_num = -1;
 struct stat kernel_file_stat;
 struct stat rootfs_file_stat;
+enum RootfsTypeEnum
+{
+	UNKNOWN, UBIFS, JFFS2
+} rootfs_type;
 
 
 void my_printf(char const *fmt, ...)
@@ -399,6 +405,30 @@ int read_mtd_file()
 	return 1;
 }
 
+int getFlashType(char* device)
+{
+	libmtd_t libmtd = libmtd_open();
+	if (libmtd == NULL)
+	{
+		if (errno == 0)
+			my_printf("MTD is not present in the system");
+		my_printf("cannot open libmtd %s", strerror(errno));
+		return -1;
+	}
+
+	struct mtd_dev_info mtd;
+	int err = mtd_get_dev_info(libmtd, device, &mtd);
+	if (err)
+	{
+		my_fprintf(stderr, "cannot get information about \"%s\"\n", device);
+		return -1;
+	}
+
+	libmtd_close(libmtd);
+
+	return mtd.type;
+}
+
 int flash_erase(char* device, char* context)
 {
 	optind = 0; // reset getopt_long
@@ -512,6 +542,41 @@ int setUbiDeviveName(int mtd_num, char* volume_name)
 	return 1;
 }
 
+void setRootfsType()
+{
+	FILE* f;
+
+	f = fopen("/proc/mounts", "r");
+	if (f == NULL)
+	{ 
+		perror("Error while opening /proc/mounts");
+		rootfs_type = UNKNOWN;
+		return;
+	}
+
+	char line [1000];
+	while (fgets(line, 1000, f) != NULL)
+	{
+		if (strstr (line, "rootfs") != NULL &&
+			strstr (line, "ubifs") != NULL)
+		{
+			my_printf("Found UBIFS\n");
+			rootfs_type = UBIFS;
+			return;
+		}
+		else if (strstr (line, "root") != NULL &&
+				 strstr (line, "jffs2") != NULL)
+		{
+			my_printf("Found JFFS2\n");
+			rootfs_type = JFFS2;
+			return;
+		}
+	}
+
+	my_printf("Found unknown rootfs\n");
+	rootfs_type = UNKNOWN;
+}
+
 int main(int argc, char *argv[])
 {
 	// Open log
@@ -543,6 +608,10 @@ int main(int argc, char *argv[])
 
 	my_printf("\n");
 
+	setRootfsType();
+
+	my_printf("\n");
+
 	if (flash_kernel && (!found_mtd_kernel || kernel_filename[0] == '\0'))
 	{
 		my_printf("Error: Cannot flash kernel");
@@ -553,13 +622,15 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	if (flash_rootfs && (!found_mtd_rootfs || rootfs_filename[0] == '\0'))
+	if (flash_rootfs && (!found_mtd_rootfs || rootfs_filename[0] == '\0' || rootfs_type == UNKNOWN))
 	{
 		my_printf("Error: Cannot flash rootfs");
 		if (!found_mtd_rootfs)
 			my_printf(", because no rootfs MTD entry was found\n");
-		else
+		else if (rootfs_filename[0] == '\0')
 			my_printf(", because no rootfs file was found\n");
+		else
+			my_printf(", because rootfs type is unknown\n");
 		return -1;
 	}
 
