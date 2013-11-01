@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <libmtd.h>
 #include <errno.h>
+#include <mtd/mtd-abi.h>
 
 
 int flash_kernel = 0;
@@ -473,6 +474,47 @@ int flash_write(char* device, char* filename)
 	return 1;
 }
 
+int kernel_flash(char* device, char* filename)
+{
+	int type = getFlashType(device);
+	if (type == -1)
+		return 0;
+
+	if (type == MTD_NANDFLASH)
+	{
+		my_printf("Found NAND flash\n");
+		// Erase
+		if (!flash_erase(kernel_mtd_device, "kernel"))
+		{
+			my_printf("Error erasing kernel! System might not boot. If you have problems please flash backup!\n");
+			return 0;
+		}
+
+		// Flash
+		if (!flash_write(kernel_mtd_device, kernel_filename))
+		{
+			my_printf("Error flashing kernel! System won't boot. Please flash backup!\n");
+			return 0;
+		}
+	}
+	else if (type == MTD_NORFLASH)
+	{
+		my_printf("Found NOR flash\n");
+		if (!flashcp(kernel_mtd_device, kernel_filename, 0))
+		{
+			my_printf("Error flashing kernel! System won't boot. Please flash backup!\n");
+			return 0;
+		}
+	}
+	else
+	{
+		my_fprintf(stderr, "Flash type \"%s\" not supported\n", type);
+		return 0;
+	}
+
+	return 1;
+}
+
 int ubi_write(char* device, char* filename)
 {
 	optind = 0; // reset getopt_long
@@ -509,6 +551,58 @@ int ubi_write_volume(char* ubivol_device, char* filename)
 	if (!no_write)
 		if (ubiupdatevol_main(argc, argv) != 0)
 			return 0;
+
+	return 1;
+}
+
+int flashcp(char* device, char* filename, int reboot)
+{
+	optind = 0; // reset getopt_long
+	char opts[4];
+	if (reboot)
+		strcpy(opts, "-vr\0");
+	else
+		strcpy(opts, "-v\0");
+	char* argv[] = {
+		"flashcp",		// program name
+		opts,			// options -v verbose -r reboot immediately after flashing
+		filename,		// file to flash
+		device,			// device
+		NULL
+	};
+	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
+
+	my_printf("Flashing rootfs: flashcp %s %s %s\n", opts, filename, device);
+	if (!no_write)
+		if (flashcp_main(argc, argv) != 0)
+			return 0;
+
+	return 1;
+}
+
+int rootfs_flash(char* device, char* filename)
+{
+	int type = getFlashType(device);
+	if (type == -1)
+		return 0;
+
+	if (type == MTD_NANDFLASH && rootfs_type == UBIFS)
+	{
+		my_printf("Found NAND flash\n");
+		if (!ubi_write(device, filename))
+			return 0;
+	}
+	else if (type == MTD_NORFLASH && rootfs_type == JFFS2)
+	{
+		my_printf("Found NOR flash\n");
+		if (!flashcp(device, filename, 1))
+			return 0;
+	}
+	else
+	{
+		my_fprintf(stderr, "Flash type \"%d\" in combination with rootfs type %d is not supported\n", type, rootfs_type);
+		return 0;
+	}
 
 	return 1;
 }
@@ -582,7 +676,7 @@ int main(int argc, char *argv[])
 	// Open log
 	openlog("ofgwrite", LOG_CONS | LOG_NDELAY, LOG_USER);
 
-	my_printf("\nofgwrite Utility v1.6\n");
+	my_printf("\nofgwrite Utility v1.7\n");
 	my_printf("Author: Betacentauri\n");
 	my_printf("Based upon: mtd-utils-native-1.4.9\n");
 	my_printf("Use at your own risk! Make always a backup before use!\n");
@@ -638,19 +732,10 @@ int main(int argc, char *argv[])
 	{
 		if (quiet)
 			my_printf("Flashing kernel ...");
-		// Erase
-		if (!flash_erase(kernel_mtd_device, "kernel"))
-		{
-			my_printf("Error erasing kernel! System might not boot. If you have problems please flash backup!\n");
-			return -1;
-		}
 
-		// Flash
-		if (!flash_write(kernel_mtd_device, kernel_filename))
-		{
-			my_printf("Error flashing kernel! System won't boot. Please flash backup!\n");
+		if (!kernel_flash(kernel_mtd_device, kernel_filename))
 			return -1;
-		}
+
 		if (quiet)
 			my_printf("done\n");
 	}
@@ -714,7 +799,7 @@ int main(int argc, char *argv[])
 		sleep(2);
 
 		// Flash rootfs
-		if (!ubi_write(rootfs_mtd_device, rootfs_filename))
+		if (!rootfs_flash(rootfs_mtd_device, rootfs_filename))
 		{
 			my_printf("Error flashing rootfs! System won't boot. Please flash backup! System will reboot in 60 seconds\n");
 			sleep(60);
