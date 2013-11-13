@@ -299,6 +299,8 @@ int flashcp_main (int argc,char *argv[])
 	erase.length = (filestat.st_size + mtd.erasesize - 1) / mtd.erasesize;
 	erase.length *= mtd.erasesize;
 
+	set_step(4, "Erasing rootfs");
+
 	if (flags & FLAG_VERBOSE)
 	{
 		/* if the user wants verbose output, erase 1 block at a time and show him/her what's going on */
@@ -307,6 +309,7 @@ int flashcp_main (int argc,char *argv[])
 		log_printf (LOG_NORMAL,"Erasing blocks: 0/%d (0%%)",blocks);
 		for (i = 1; i <= blocks; i++)
 		{
+			set_step_progress(PERCENTAGE (i,blocks));
 			if (i%200 == 0)
 				log_printf (LOG_NORMAL,"\rErasing blocks: %d/%d (%d%%)",i,blocks,PERCENTAGE (i,blocks));
 			if (ioctl (dev_fd,MEMERASE,&erase) < 0)
@@ -342,6 +345,8 @@ int flashcp_main (int argc,char *argv[])
 	 * write the entire file to flash *
 	 **********************************/
 
+	set_step(5, "Writing rootfs");
+
 	if (flags & FLAG_VERBOSE) log_printf (LOG_NORMAL,"Writing data: 0k/%luk (0%%)",KB (filestat.st_size));
 	size = filestat.st_size;
 	i = BUFSIZE;
@@ -356,6 +361,7 @@ int flashcp_main (int argc,char *argv[])
 						KB (written + i),
 						KB (filestat.st_size),
 						PERCENTAGE (written + i,filestat.st_size));
+		set_step_progress(PERCENTAGE (written + i,filestat.st_size));
 
 		/* read from filename */
 		ret = safe_read (fil_fd,filename,src,i,flags & FLAG_VERBOSE);

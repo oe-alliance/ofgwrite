@@ -288,6 +288,9 @@ static void print_bad_eraseblocks(const struct mtd_dev_info *mtd,
 		return;
 
 	normsg_cont("%d bad eraseblocks found, numbers: ", si->bad_cnt);
+	char info[30];
+	sprintf(info, "%d %s", si->bad_cnt, "bad eraseblocks found");
+	set_info_text(info);
 	for (eb = 0; eb < mtd->eb_cnt; eb++) {
 		if (si->ec[eb] != EB_BAD)
 			continue;
@@ -448,6 +451,8 @@ static int mark_bad(const struct mtd_dev_info *mtd, struct ubi_scan_info *si, in
 static int flash_image(libmtd_t libmtd, const struct mtd_dev_info *mtd,
 		       const struct ubigen_info *ui, struct ubi_scan_info *si)
 {
+	set_step(4, "Flashing UBI image");
+
 	int fd, img_ebs, eb, written_ebs = 0, divisor, skip_data_read = 0;
 	off_t st_size;
 
@@ -479,6 +484,7 @@ static int flash_image(libmtd_t libmtd, const struct mtd_dev_info *mtd,
 		if (!args.quiet && !args.verbose) {
 			printf("\r" PROGRAM_NAME ": flashing eraseblock %d -- %2lld %% complete  ",
 			       eb, (long long)(eb + 1) * 100 / divisor);
+			set_step_progress((int)((long long)(eb + 1) * 100 / divisor));
 			fflush(stdout);
 		}
 
@@ -583,6 +589,8 @@ static int format(libmtd_t libmtd, const struct mtd_dev_info *mtd,
 		  const struct ubigen_info *ui, struct ubi_scan_info *si,
 		  int start_eb, int novtbl)
 {
+	set_step(5, "Formating remaining eraseblocks");
+
 	int eb, err, write_size;
 	struct ubi_ec_hdr *hdr;
 	struct ubi_vtbl_record *vtbl;
@@ -603,6 +611,7 @@ static int format(libmtd_t libmtd, const struct mtd_dev_info *mtd,
 		if (!args.quiet && !args.verbose) {
 			printf("\r" PROGRAM_NAME ": formatting eraseblock %d -- %2lld %% complete  ",
 			       eb, (long long)(eb + 1 - start_eb) * 100 / (mtd->eb_cnt - start_eb));
+			set_step_progress((int)((long long)(eb + 1 - start_eb) * 100 / (mtd->eb_cnt - start_eb)));
 			fflush(stdout);
 		}
 
@@ -680,7 +689,7 @@ static int format(libmtd_t libmtd, const struct mtd_dev_info *mtd,
 	}
 
 	if (!args.quiet && !args.verbose)
-		my_printf("\n");
+		my_printf("Format end\n");
 
 	if (!novtbl) {
 		if (eb1 == -1 || eb2 == -1) {
@@ -955,8 +964,8 @@ int ubiformat_main(int argc, char * const argv[])
 			goto out_free;
 	}
 
-	ubi_scan_free(si);
-	close(args.node_fd);
+	//ubi_scan_free(si);
+	//close(args.node_fd);
 	libmtd_close(libmtd);
 	return 0;
 

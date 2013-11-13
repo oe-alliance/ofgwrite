@@ -676,7 +676,7 @@ int main(int argc, char *argv[])
 	// Open log
 	openlog("ofgwrite", LOG_CONS | LOG_NDELAY, LOG_USER);
 
-	my_printf("\nofgwrite Utility v1.7\n");
+	my_printf("\nofgwrite Utility v1.8\n");
 	my_printf("Author: Betacentauri\n");
 	my_printf("Based upon: mtd-utils-native-1.4.9\n");
 	my_printf("Use at your own risk! Make always a backup before use!\n");
@@ -757,6 +757,10 @@ int main(int argc, char *argv[])
 		}
 		sleep(4);
 
+		init_framebuffer(5);
+		set_overall_text("Flashing Rootfs");
+		set_step(1, "Killing processes");
+
 		// kill nmbd, smbd, rpc.mountd and rpc.statd -> otherwise remounting root read-only is not possible
 		if (!no_write)
 		{
@@ -773,23 +777,27 @@ int main(int argc, char *argv[])
 
 		// sync filesystem
 		my_printf("Syncing filesystem\n");
+		set_step(2, "Syncing filesystem");
 		ret = system("sync");
 		if (ret)
 		{
 			my_printf("Error syncing filesystem!\n");
+			set_error_text("Error syncing filesystem!");
 			return -1;
 		}
 
 		sleep(3);
 
 		// Remount root read-only
-		my_printf("Remounting root read-only\n");
+		my_printf("Remounting rootfs read-only\n");
+		set_step(3, "Remounting rootfs read-only");
 		if (!no_write)
 		{
 			ret = system("mount -r -o remount /");
 			if (ret)
 			{
 				my_printf("Error remounting root!\n");
+				set_error_text("Error remounting root!");
 				return -1;
 			}
 		}
@@ -802,12 +810,14 @@ int main(int argc, char *argv[])
 		if (!rootfs_flash(rootfs_mtd_device, rootfs_filename))
 		{
 			my_printf("Error flashing rootfs! System won't boot. Please flash backup! System will reboot in 60 seconds\n");
+			set_error_text("Error flashing rootfs! System won't boot. Please flash backup! Rebooting in 60 seconds");
 			sleep(60);
 			reboot(LINUX_REBOOT_CMD_RESTART);
 			return -1;
 		}
 
 		my_printf("Successfully flashed rootfs! Rebooting in 3 seconds...\n");
+		set_step(6, "Successfully flashed! Rebooting in 3 seconds");
 		fflush(stdout);
 		fflush(stderr);
 		sleep(3);
@@ -818,6 +828,7 @@ int main(int argc, char *argv[])
 	}
 
 	closelog();
+	close_framebuffer();
 
 	return 0;
 }
