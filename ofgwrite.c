@@ -676,7 +676,7 @@ int main(int argc, char *argv[])
 	// Open log
 	openlog("ofgwrite", LOG_CONS | LOG_NDELAY, LOG_USER);
 
-	my_printf("\nofgwrite Utility v1.9\n");
+	my_printf("\nofgwrite Utility v1.9.1\n");
 	my_printf("Author: Betacentauri\n");
 	my_printf("Based upon: mtd-utils-native-1.4.9\n");
 	my_printf("Use at your own risk! Make always a backup before use!\n");
@@ -771,6 +771,7 @@ int main(int argc, char *argv[])
 			ret = system("/etc/init.d/softcam stop");
 			ret = system("killall CCcam");
 			ret = system("killall hddtemp");
+			ret = system("killall transmission-daemon");
 			// ignore return values, because the processes might not run
 		}
 
