@@ -113,7 +113,8 @@ int find_image_files(char* p)
 		if (entry)
 		{
 			if (strcmp(entry->d_name, "kernel.bin") == 0			// ET-xx00, XP1000
-			 || strcmp(entry->d_name, "kernel_cfe_auto.bin") == 0)	// VU boxes
+			 || strcmp(entry->d_name, "kernel_cfe_auto.bin") == 0	// VU boxes
+			 || strcmp(entry->d_name, "oe_kernel.bin") == 0)	// DAGS boxes
 			{
 				strcpy(kernel_filename, path);
 				strcpy(&kernel_filename[strlen(path)], entry->d_name);
@@ -122,7 +123,8 @@ int find_image_files(char* p)
 			}
 			if (strcmp(entry->d_name, "rootfs.bin") == 0			// ET-xx00, XP1000
 			 || strcmp(entry->d_name, "root_cfe_auto.bin") == 0		// Solo2
-			 || strcmp(entry->d_name, "root_cfe_auto.jffs2") == 0)	// other VU boxes
+			 || strcmp(entry->d_name, "root_cfe_auto.jffs2") == 0	// other VU boxes
+			 || strcmp(entry->d_name, "oe_rootfs.bin") == 0)	// DAGS boxes
 			{
 				strcpy(rootfs_filename, path);
 				strcpy(&rootfs_filename[strlen(path)], entry->d_name);
@@ -676,7 +678,7 @@ int main(int argc, char *argv[])
 	// Open log
 	openlog("ofgwrite", LOG_CONS | LOG_NDELAY, LOG_USER);
 
-	my_printf("\nofgwrite Utility v1.9.1\n");
+	my_printf("\nofgwrite Utility v1.9.2\n");
 	my_printf("Author: Betacentauri\n");
 	my_printf("Based upon: mtd-utils-native-1.4.9\n");
 	my_printf("Use at your own risk! Make always a backup before use!\n");
