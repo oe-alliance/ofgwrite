@@ -12,9 +12,11 @@ LIBOBJ = $(LIBSRC:.c=.o)
 
 OUT_LIB = ./lib/libmtd.a
 
-CFLAGS = -O2 -I./include
+CFLAGS ?= -O2
+CFLAGS += -I./include
 
-CC = gcc
+CC ?= gcc
+AR ?= ar
 
 .SUFFIXES: .cpp
 
@@ -24,7 +26,7 @@ default: $(OUT_LIB) $(OUT)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OUT_LIB): $(LIBOBJ)
-	ar rcs $(OUT_LIB) $(LIBOBJ)
+	$(AR) rcs $(OUT_LIB) $(LIBOBJ)
 
 $(OUT): $(OBJ) $(OUT_LIB)
 	$(CC) -o $@ $(OBJ) $(LDFLAGS)
