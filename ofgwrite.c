@@ -115,6 +115,7 @@ int find_image_files(char* p)
 			if (strcmp(entry->d_name, "kernel.bin") == 0			// ET-xx00, XP1000
 			 || strcmp(entry->d_name, "kernel_cfe_auto.bin") == 0	// VU boxes
 			 || strcmp(entry->d_name, "oe_kernel.bin") == 0)	// DAGS boxes
+			 || strcmp(entry->d_name, "uImage") == 0)	// Spark boxes
 			{
 				strcpy(kernel_filename, path);
 				strcpy(&kernel_filename[strlen(path)], entry->d_name);
@@ -125,6 +126,7 @@ int find_image_files(char* p)
 			 || strcmp(entry->d_name, "root_cfe_auto.bin") == 0		// Solo2
 			 || strcmp(entry->d_name, "root_cfe_auto.jffs2") == 0	// other VU boxes
 			 || strcmp(entry->d_name, "oe_rootfs.bin") == 0)	// DAGS boxes
+			 || strcmp(entry->d_name, "e2jffs2.img") == 0)	// Spark boxes
 			{
 				strcpy(rootfs_filename, path);
 				strcpy(&rootfs_filename[strlen(path)], entry->d_name);
