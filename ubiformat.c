@@ -103,10 +103,11 @@ static const char optionsstr[] =
 
 static const char usage[] =
 "Usage: " PROGRAM_NAME " <MTD device node file name> [-s <bytes>] [-O <offs>] [-n]\n"
-"\t\t\t[-f <file>] [-S <bytes>] [-e <value>] [-x <num>] [-y] [-q] [-v] [-h] [-v]\n"
+"\t\t\t[-Q <num>] [-f <file>] [-S <bytes>] [-e <value>] [-x <num>] [-y] [-q] [-v] [-h]\n"
 "\t\t\t[--sub-page-size=<bytes>] [--vid-hdr-offset=<offs>] [--no-volume-table]\n"
 "\t\t\t[--flash-image=<file>] [--image-size=<bytes>] [--erase-counter=<value>]\n"
-"\t\t\t[--ubi-ver=<num>] [--yes] [--quiet] [--verbose] [--help] [--version]\n\n"
+"\t\t\t[--image-seq=<num>] [--ubi-ver=<num>] [--yes] [--quiet] [--verbose]\n"
+"\t\t\t[--help] [--version]\n\n"
 "Example 1: " PROGRAM_NAME " /dev/mtd0 -y - format MTD device number 0 and do\n"
 "           not ask questions.\n"
 "Example 2: " PROGRAM_NAME " /dev/mtd0 -q -e 0 - format MTD device number 0,\n"
@@ -248,35 +249,12 @@ static int parse_opt(int argc, char * const argv[])
 
 static int want_exit(void)
 {
-	char buf[4];
-
-	while (1) {
-		normsg_cont("continue? (yes/no)  ");
-		if (scanf("%3s", buf) == EOF) {
-			sys_errmsg("scanf returned unexpected EOF, assume \"yes\"");
-			return 1;
-		}
-		if (!strncmp(buf, "yes", 3) || !strncmp(buf, "y", 1))
-			return 0;
-		if (!strncmp(buf, "no", 2) || !strncmp(buf, "n", 1))
-			return 1;
-	}
+	return prompt("continue?", false) == true ? 0 : 1;
 }
 
-static int answer_is_yes(void)
+static int answer_is_yes(const char *msg)
 {
-	char buf[4];
-
-	while (1) {
-		if (scanf("%3s", buf) == EOF) {
-			sys_errmsg("scanf returned unexpected EOF, assume \"no\"");
-			return 0;
-		}
-		if (!strncmp(buf, "yes", 3) || !strncmp(buf, "y", 1))
-			return 1;
-		if (!strncmp(buf, "no", 2) || !strncmp(buf, "n", 1))
-			return 0;
-	}
+	return prompt(msg ? : "continue?", false);
 }
 
 static void print_bad_eraseblocks(const struct mtd_dev_info *mtd,
@@ -420,11 +398,9 @@ static int mark_bad(const struct mtd_dev_info *mtd, struct ubi_scan_info *si, in
 {
 	int err;
 
-	if (!args.yes) {
-		normsg_cont("mark it as bad? Continue (yes/no) ");
-		if (!answer_is_yes())
+	if (!args.yes)
+		if (!answer_is_yes("mark it as bad?"))
 			return -1;
-	}
 
 	if (!args.quiet)
 		normsg_cont("marking block %d bad", eb);
@@ -754,7 +730,7 @@ int ubiformat_main(int argc, char * const argv[])
 	if (!is_power_of_2(mtd.min_io_size)) {
 		errmsg("min. I/O size is %d, but should be power of 2",
 		       mtd.min_io_size);
-		goto out_close;
+		goto out_close_mtd;
 	}
 
 	if (!mtd_info.sysfs_supported) {
@@ -782,13 +758,13 @@ int ubiformat_main(int argc, char * const argv[])
 		/* Do some sanity check */
 		if (args.subpage_size > mtd.min_io_size) {
 			errmsg("sub-page cannot be larger than min. I/O unit");
-			goto out_close;
+			goto out_close_mtd;
 		}
 
 		if (mtd.min_io_size % args.subpage_size) {
 			errmsg("min. I/O unit size should be multiple of "
 			       "sub-page size");
-			goto out_close;
+			goto out_close_mtd;
 		}
 	}
 
@@ -876,7 +852,7 @@ int ubiformat_main(int argc, char * const argv[])
 
 	if (si->alien_cnt) {
 		if (!args.yes || !args.quiet)
-			warnmsg("%d of %d eraseblocks contain non-ubifs data",
+			warnmsg("%d of %d eraseblocks contain non-UBI data",
 				si->alien_cnt, si->good_cnt);
 		if (!args.yes && want_exit()) {
 			if (args.yes && !args.quiet)
@@ -893,11 +869,12 @@ int ubiformat_main(int argc, char * const argv[])
 		 * erase counters.
 		 */
 		if (percent < 50) {
-			if (!args.yes || !args.quiet)
+			if (!args.yes || !args.quiet) {
 				warnmsg("only %d of %d eraseblocks have valid erase counter",
 					si->ok_cnt, si->good_cnt);
 				normsg("erase counter 0 will be used for all eraseblocks");
 				normsg("note, arbitrary erase counter value may be specified using -e option");
+			}
 			if (!args.yes && want_exit()) {
 				if (args.yes && !args.quiet)
 					my_printf("yes\n");
@@ -906,11 +883,12 @@ int ubiformat_main(int argc, char * const argv[])
 			 args.ec = 0;
 			 args.override_ec = 1;
 		} else if (percent < 95) {
-			if (!args.yes || !args.quiet)
+			if (!args.yes || !args.quiet) {
 				warnmsg("only %d of %d eraseblocks have valid erase counter",
 					si->ok_cnt, si->good_cnt);
 				normsg("mean erase counter %lld will be used for the rest of eraseblock",
 				       si->mean_ec);
+			}
 			if (!args.yes && want_exit()) {
 				if (args.yes && !args.quiet)
 					my_printf("yes\n");
@@ -937,10 +915,10 @@ int ubiformat_main(int argc, char * const argv[])
 				"which is different to requested offsets %d and %d",
 				si->vid_hdr_offs, si->data_offs, ui.vid_hdr_offs,
 				ui.data_offs);
-			normsg_cont("use new offsets %d and %d? (yes/no)  ",
+			normsg_cont("use new offsets %d and %d? ",
 				    ui.vid_hdr_offs, ui.data_offs);
 		}
-		if (args.yes || answer_is_yes()) {
+		if (args.yes || answer_is_yes(NULL)) {
 			if (args.yes && !args.quiet)
 				my_printf("yes\n");
 		} else

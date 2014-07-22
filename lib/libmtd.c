@@ -403,6 +403,8 @@ static int type_str2int(const char *str)
 {
 	if (!strcmp(str, "nand"))
 		return MTD_NANDFLASH;
+	if (!strcmp(str, "mlc-nand"))
+		return MTD_MLCNANDFLASH;
 	if (!strcmp(str, "nor"))
 		return MTD_NORFLASH;
 	if (!strcmp(str, "rom"))
@@ -429,7 +431,7 @@ static int type_str2int(const char *str)
 static int dev_node2num(struct libmtd *lib, const char *node, int *mtd_num)
 {
 	struct stat st;
-	int i, major, minor;
+	int i, mjr, mnr;
 	struct mtd_info info;
 
 	if (stat(node, &st))
@@ -441,16 +443,16 @@ static int dev_node2num(struct libmtd *lib, const char *node, int *mtd_num)
 		return -1;
 	}
 
-	major = major(st.st_rdev);
-	minor = minor(st.st_rdev);
+	mjr = major(st.st_rdev);
+	mnr = minor(st.st_rdev);
 
 	if (mtd_get_info((libmtd_t *)lib, &info))
 		return -1;
 
 	for (i = info.lowest_mtd_num; i <= info.highest_mtd_num; i++) {
-		int major1, minor1, ret;
+		int mjr1, mnr1, ret;
 
-		ret = dev_get_major(lib, i, &major1, &minor1);
+		ret = dev_get_major(lib, i, &mjr1, &mnr1);
 		if (ret) {
 			if (errno == ENOENT)
 				continue;
@@ -459,7 +461,7 @@ static int dev_node2num(struct libmtd *lib, const char *node, int *mtd_num)
 			return -1;
 		}
 
-		if (major1 == major && minor1 == minor) {
+		if (mjr1 == mjr && mnr1 == mnr) {
 			errno = 0;
 			*mtd_num = i;
 			return 0;
@@ -641,6 +643,20 @@ void libmtd_close(libmtd_t desc)
 	free(lib);
 }
 
+int mtd_dev_present(libmtd_t desc, int mtd_num) {
+	struct stat st;
+	struct libmtd *lib = (struct libmtd *)desc;
+
+	if (!lib->sysfs_supported)
+		return legacy_dev_present(mtd_num);
+	else {
+		char file[strlen(lib->mtd) + 10];
+
+		sprintf(file, lib->mtd, mtd_num);
+		return !stat(file, &st);
+	}
+}
+
 int mtd_get_info(libmtd_t desc, struct mtd_info *info)
 {
 	DIR *sysfs_mtd;
@@ -716,24 +732,16 @@ out_close:
 int mtd_get_dev_info1(libmtd_t desc, int mtd_num, struct mtd_dev_info *mtd)
 {
 	int ret;
-	struct stat st;
 	struct libmtd *lib = (struct libmtd *)desc;
 
 	memset(mtd, 0, sizeof(struct mtd_dev_info));
 	mtd->mtd_num = mtd_num;
 
-	if (!lib->sysfs_supported)
+	if (!mtd_dev_present(desc, mtd_num)) {
+		errno = ENODEV;
+		return -1;
+	} else if (!lib->sysfs_supported)
 		return legacy_get_dev_info1(mtd_num, mtd);
-	else {
-		char file[strlen(lib->mtd) + 10];
-
-		sprintf(file, lib->mtd, mtd_num);
-		if (stat(file, &st)) {
-			if (errno == ENOENT)
-				errno = ENODEV;
-			return -1;
-		}
-	}
 
 	if (dev_get_major(lib, mtd_num, &mtd->major, &mtd->minor))
 		return -1;
@@ -768,7 +776,8 @@ int mtd_get_dev_info1(libmtd_t desc, int mtd_num, struct mtd_dev_info *mtd)
 
 	mtd->eb_cnt = mtd->size / mtd->eb_size;
 	mtd->type = type_str2int(mtd->type_str);
-	mtd->bb_allowed = !!(mtd->type == MTD_NANDFLASH);
+	mtd->bb_allowed = !!(mtd->type == MTD_NANDFLASH ||
+				mtd->type == MTD_MLCNANDFLASH);
 
 	return 0;
 }
@@ -1057,8 +1066,8 @@ int mtd_read(const struct mtd_dev_info *mtd, int fd, int eb, int offs,
 	/* Seek to the beginning of the eraseblock */
 	seek = (off_t)eb * mtd->eb_size + offs;
 	if (lseek(fd, seek, SEEK_SET) != seek)
-		return sys_errmsg("cannot seek mtd%d to offset %llu",
-				  mtd->mtd_num, (unsigned long long)seek);
+		return sys_errmsg("cannot seek mtd%d to offset %"PRIdoff_t,
+				  mtd->mtd_num, seek);
 
 	while (rd < len) {
 		ret = read(fd, buf, len);
@@ -1155,7 +1164,7 @@ int mtd_write(libmtd_t desc, const struct mtd_dev_info *mtd, int fd, int eb,
 		else if (errno != ENOTTY && errno != EOPNOTSUPP)
 			return mtd_ioctl_error(mtd, eb, "MEMWRITE");
 
-		/* Fall back to old methods if necessary */
+		/* Fall back to old OOB ioctl() if necessary */
 		if (mode == MTD_OPS_AUTO_OOB)
 			if (legacy_auto_oob_layout(mtd, fd, ooblen, oob))
 				return -1;
@@ -1165,8 +1174,8 @@ int mtd_write(libmtd_t desc, const struct mtd_dev_info *mtd, int fd, int eb,
 	if (data) {
 		/* Seek to the beginning of the eraseblock */
 		if (lseek(fd, seek, SEEK_SET) != seek)
-			return sys_errmsg("cannot seek mtd%d to offset %llu",
-					mtd->mtd_num, (unsigned long long)seek);
+			return sys_errmsg("cannot seek mtd%d to offset %"PRIdoff_t,
+					mtd->mtd_num, seek);
 		ret = write(fd, data, len);
 		if (ret != len)
 			return sys_errmsg("cannot write %d bytes to mtd%d "
@@ -1323,8 +1332,8 @@ int mtd_write_img(const struct mtd_dev_info *mtd, int fd, int eb, int offs,
 	/* Seek to the beginning of the eraseblock */
 	seek = (off_t)eb * mtd->eb_size + offs;
 	if (lseek(fd, seek, SEEK_SET) != seek) {
-		sys_errmsg("cannot seek mtd%d to offset %llu",
-			    mtd->mtd_num, (unsigned long long)seek);
+		sys_errmsg("cannot seek mtd%d to offset %"PRIdoff_t,
+			    mtd->mtd_num, seek);
 		goto out_close;
 	}
 
@@ -1369,7 +1378,7 @@ int mtd_probe_node(libmtd_t desc, const char *node)
 {
 	struct stat st;
 	struct mtd_info info;
-	int i, major, minor;
+	int i, mjr, mnr;
 	struct libmtd *lib = (struct libmtd *)desc;
 
 	if (stat(node, &st))
@@ -1381,8 +1390,8 @@ int mtd_probe_node(libmtd_t desc, const char *node)
 		return -1;
 	}
 
-	major = major(st.st_rdev);
-	minor = minor(st.st_rdev);
+	mjr = major(st.st_rdev);
+	mnr = minor(st.st_rdev);
 
 	if (mtd_get_info((libmtd_t *)lib, &info))
 		return -1;
@@ -1391,9 +1400,9 @@ int mtd_probe_node(libmtd_t desc, const char *node)
 		return 0;
 
 	for (i = info.lowest_mtd_num; i <= info.highest_mtd_num; i++) {
-		int major1, minor1, ret;
+		int mjr1, mnr1, ret;
 
-		ret = dev_get_major(lib, i, &major1, &minor1);
+		ret = dev_get_major(lib, i, &mjr1, &mnr1);
 		if (ret) {
 			if (errno == ENOENT)
 				continue;
@@ -1402,7 +1411,7 @@ int mtd_probe_node(libmtd_t desc, const char *node)
 			return -1;
 		}
 
-		if (major1 == major && minor1 == minor)
+		if (mjr1 == mjr && mnr1 == mnr)
 			return 1;
 	}
 

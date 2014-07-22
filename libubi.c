@@ -188,10 +188,8 @@ static int read_data(const char *file, void *buf, int buf_len)
 		goto out_error;
 	}
 
-	if (close(fd)) {
-		sys_errmsg("close failed on \"%s\"", file);
-		return -1;
-	}
+	if (close(fd))
+		return sys_errmsg("close failed on \"%s\"", file);
 
 	return rd;
 
@@ -419,6 +417,9 @@ static int vol_node2nums(struct libubi *lib, const char *node, int *dev_num,
 		errno = ENODEV;
 		return -1;
 	}
+
+	if (close(fd))
+		return sys_errmsg("close failed on \"%s\"", file);
 
 	*dev_num = i;
 	*vol_id = minor - 1;
@@ -707,26 +708,6 @@ static int do_attach(const char *node, const struct ubi_attach_req *r)
 	return ret;
 }
 
-int ubi_attach_mtd(libubi_t desc, const char *node,
-		   struct ubi_attach_request *req)
-{
-	struct ubi_attach_req r;
-	int ret;
-
-	(void)desc;
-
-	memset(&r, 0, sizeof(struct ubi_attach_req));
-	r.ubi_num = req->dev_num;
-	r.mtd_num = req->mtd_num;
-	r.vid_hdr_offset = req->vid_hdr_offset;
-
-	ret = do_attach(node, &r);
-	if (ret == 0)
-		req->dev_num = r.ubi_num;
-
-	return ret;
-}
-
 #ifndef MTD_CHAR_MAJOR
 /*
  * This is taken from kernel <linux/mtd/mtd.h> and is unlikely to change anytime
@@ -773,21 +754,52 @@ int ubi_attach(libubi_t desc, const char *node, struct ubi_attach_request *req)
 	struct ubi_attach_req r;
 	int ret;
 
-	if (!req->mtd_dev_node)
-		/* Fallback to opening by mtd_num */
-		return ubi_attach_mtd(desc, node, req);
+	(void)desc;
+
+	if (req->mtd_dev_node) {
+		/*
+		 * User has passed path to device node. Lets find out MTD
+		 * device number of the device and update req->mtd_num with it
+		 */
+		req->mtd_num = mtd_node_to_num(req->mtd_dev_node);
+		if (req->mtd_num == -1)
+			return -1;
+	}
 
 	memset(&r, 0, sizeof(struct ubi_attach_req));
 	r.ubi_num = req->dev_num;
+	r.mtd_num = req->mtd_num;
 	r.vid_hdr_offset = req->vid_hdr_offset;
 
-	/*
-	 * User has passed path to device node. Lets find out MTD device number
-	 * of the device and pass it to the kernel.
-	 */
-	r.mtd_num = mtd_node_to_num(req->mtd_dev_node);
-	if (r.mtd_num == -1)
-		return -1;
+	if (req->max_beb_per1024) {
+		/*
+		 * We first have to check if the running kernel supports the
+		 * 'max_beb_per1024' parameter. To do this, we invoke the
+		 * "attach" ioctl 2 times: first with incorrect value %-1 of
+		 * 'max_beb_per1024'.
+		 *
+		 * If the ioctl succeeds, it means that the kernel doesn't
+		 * support the feature and just ignored our 'max_beb_per1024'
+		 * value.
+		 *
+		 * If the ioctl returns -EINVAL, we assume this is because
+		 * 'max_beb_per1024' was set to -1, and we invoke the ioctl for
+		 * the second time with the 'max_beb_per1024' value.
+		 */
+		r.max_beb_per1024 = -1;
+		ret = do_attach(node, &r);
+		if (ret == 0) {
+			req->dev_num = r.ubi_num;
+			/*
+			 * The call succeeded. It means that the kernel ignored
+			 * 'max_beb_per1024' parameter. 
+			 */
+			return 1;
+		} else if (errno != EINVAL)
+			return ret;
+	}
+
+	r.max_beb_per1024 = req->max_beb_per1024;
 
 	ret = do_attach(node, &r);
 	if (ret == 0)
@@ -899,6 +911,9 @@ int ubi_probe_node(libubi_t desc, const char *node)
 	fd = open(file, O_RDONLY);
 	if (fd == -1)
 		goto out_not_ubi;
+
+        if (close(fd))
+		sys_errmsg("close failed on \"%s\"", file);
 
 	return 2;
 
@@ -1098,6 +1113,16 @@ int ubi_rsvol(libubi_t desc, const char *node, int vol_id, long long bytes)
 	return ret;
 }
 
+int ubi_vol_block_create(int fd)
+{
+	return ioctl(fd, UBI_IOCVOLCRBLK);
+}
+
+int ubi_vol_block_remove(int fd)
+{
+	return ioctl(fd, UBI_IOCVOLRMBLK);
+}
+
 int ubi_update_start(libubi_t desc, int fd, long long bytes)
 {
 	desc = desc;
@@ -1106,7 +1131,7 @@ int ubi_update_start(libubi_t desc, int fd, long long bytes)
 	return 0;
 }
 
-int ubi_leb_change_start(libubi_t desc, int fd, int lnum, int bytes, int dtype)
+int ubi_leb_change_start(libubi_t desc, int fd, int lnum, int bytes)
 {
 	struct ubi_leb_change_req req;
 
@@ -1114,23 +1139,17 @@ int ubi_leb_change_start(libubi_t desc, int fd, int lnum, int bytes, int dtype)
 	memset(&req, 0, sizeof(struct ubi_leb_change_req));
 	req.lnum = lnum;
 	req.bytes = bytes;
-	req.dtype = dtype;
+	req.dtype = 3;
 
 	if (ioctl(fd, UBI_IOCEBCH, &req))
 		return -1;
 	return 0;
 }
 
-/**
- * dev_present - check whether an UBI device is present.
- * @lib: libubi descriptor
- * @dev_num: UBI device number to check
- *
- * This function returns %1 if UBI device is present and %0 if not.
- */
-static int dev_present(struct libubi *lib, int dev_num)
+int ubi_dev_present(libubi_t desc, int dev_num)
 {
 	struct stat st;
+	struct libubi *lib = (struct libubi *)desc;
 	char file[strlen(lib->ubi_dev) + 50];
 
 	sprintf(file, lib->ubi_dev, dev_num);
@@ -1146,7 +1165,7 @@ int ubi_get_dev_info1(libubi_t desc, int dev_num, struct ubi_dev_info *info)
 	memset(info, 0, sizeof(struct ubi_dev_info));
 	info->dev_num = dev_num;
 
-	if (!dev_present(lib, dev_num))
+	if (!ubi_dev_present(desc, dev_num))
 		return -1;
 
 	sysfs_ubi = opendir(lib->sysfs_ubi);
@@ -1352,13 +1371,13 @@ int ubi_get_vol_info1_nm(libubi_t desc, int dev_num, const char *name,
 
 int ubi_set_property(int fd, uint8_t property, uint64_t value)
 {
-	struct ubi_set_prop_req r;
+	struct ubi_set_vol_prop_req r;
 
-	memset(&r, 0, sizeof(struct ubi_set_prop_req));
+	memset(&r, 0, sizeof(struct ubi_set_vol_prop_req));
 	r.property = property;
 	r.value = value;
 
-	return ioctl(fd, UBI_IOCSETPROP, &r);
+	return ioctl(fd, UBI_IOCSETVOLPROP, &r);
 }
 
 int ubi_leb_unmap(int fd, int lnum)

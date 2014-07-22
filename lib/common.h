@@ -19,12 +19,15 @@
 #ifndef __MTD_UTILS_COMMON_H__
 #define __MTD_UTILS_COMMON_H__
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <features.h>
+#include <inttypes.h>
 #include "version.h"
 
 #ifndef PROGRAM_NAME
@@ -46,6 +49,15 @@ extern "C" {
 
 #ifndef O_CLOEXEC
 #define O_CLOEXEC 0
+#endif
+
+/* define a print format specifier for off_t */
+#ifdef __USE_FILE_OFFSET64
+#define PRIxoff_t PRIx64
+#define PRIdoff_t PRId64
+#else
+#define PRIxoff_t "l"PRIx32
+#define PRIdoff_t "l"PRId32
 #endif
 
 /* Verbose messages */
@@ -90,9 +102,45 @@ extern "C" {
 	my_fprintf(stderr, "%s: warning!: " fmt "\n", PROGRAM_NAME, ##__VA_ARGS__); \
 } while(0)
 
+/**
+ * prompt the user for confirmation
+ */
+static inline bool prompt(const char *msg, bool def)
+{
+	char *line = NULL;
+	size_t len;
+	bool ret = def;
+
+	do {
+		normsg_cont("%s (%c/%c) ", msg, def ? 'Y' : 'y', def ? 'n' : 'N');
+		fflush(stdout);
+
+		while (getline(&line, &len, stdin) == -1) {
+			printf("failed to read prompt; assuming '%s'\n",
+				def ? "yes" : "no");
+			break;
+		}
+
+		if (strcmp("\n", line) != 0) {
+			switch (rpmatch(line)) {
+			case 0: ret = false; break;
+			case 1: ret = true; break;
+			case -1:
+				puts("unknown response; please try again");
+				continue;
+			}
+		}
+		break;
+	} while (1);
+
+	free(line);
+
+	return ret;
+}
+
 static inline int is_power_of_2(unsigned long long n)
 {
-	        return (n != 0 && ((n & (n - 1)) == 0));
+	return (n != 0 && ((n & (n - 1)) == 0));
 }
 
 /**

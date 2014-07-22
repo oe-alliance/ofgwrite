@@ -21,6 +21,7 @@
 #define PROGRAM_NAME "flash_erase"
 
 #include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -49,10 +50,10 @@ static int unlock;		/* unlock sectors before erasing */
 static struct jffs2_unknown_node cleanmarker;
 int target_endian = __BYTE_ORDER;
 
-static void show_progress(struct mtd_dev_info *mtd, uint64_t start, int eb,
+static void show_progress(struct mtd_dev_info *mtd, off_t start, int eb,
 			  int eb_start, int eb_cnt)
 {
-	bareverbose(!quiet, "\rErasing %d Kibyte @ %"PRIx64" -- %2i %% complete ",
+	bareverbose(!quiet, "\rErasing %d Kibyte @ %"PRIxoff_t" -- %2i %% complete ",
 		mtd->eb_size / 1024, start, ((eb - eb_start) * 100) / eb_cnt);
 	fflush(stdout);
 }
@@ -95,9 +96,9 @@ int flash_erase_main(int argc, char *argv[])
 	int fd, clmpos = 0, clmlen = 8;
 	unsigned long long start;
 	unsigned int eb, eb_start, eb_cnt;
-	int isNAND;
+	bool isNAND;
 	int error = 0;
-	uint64_t offset = 0;
+	off_t offset = 0;
 
 	/*
 	 * Process user arguments
@@ -182,9 +183,12 @@ int flash_erase_main(int argc, char *argv[])
 	if (mtd_get_dev_info(mtd_desc, mtd_device, &mtd) < 0)
 		return errmsg("mtd_get_dev_info failed");
 
+	if (jffs2 && mtd.type == MTD_MLCNANDFLASH)
+		return errmsg("JFFS2 cannot support MLC NAND.");
+
 	eb_start = start / mtd.eb_size;
 
-	isNAND = mtd.type == MTD_NANDFLASH ? 1 : 0;
+	isNAND = mtd.type == MTD_NANDFLASH || mtd.type == MTD_MLCNANDFLASH;
 
 	if (jffs2) {
 		cleanmarker.magic = cpu_to_je16 (JFFS2_MAGIC_BITMASK);
@@ -235,12 +239,12 @@ int flash_erase_main(int argc, char *argv[])
 		eb_cnt = (mtd.size / mtd.eb_size) - eb_start;
 
 	for (eb = eb_start; eb < eb_start + eb_cnt; eb++) {
-		offset = (uint64_t)eb * mtd.eb_size;
+		offset = (off_t)eb * mtd.eb_size;
 
 		if (!noskipbad) {
 			int ret = mtd_is_bad(&mtd, fd, eb);
 			if (ret > 0) {
-				verbose(!quiet, "Skipping bad block at %08"PRIx64, offset);
+				verbose(!quiet, "Skipping bad block at %08"PRIxoff_t, offset);
 				continue;
 			} else if (ret < 0) {
 				if (errno == EOPNOTSUPP) {
@@ -272,21 +276,17 @@ int flash_erase_main(int argc, char *argv[])
 
 		/* write cleanmarker */
 		if (isNAND) {
-			if (mtd_write_oob(mtd_desc, &mtd, fd, offset + clmpos, clmlen, &cleanmarker) != 0) {
+			if (mtd_write_oob(mtd_desc, &mtd, fd, (uint64_t)offset + clmpos, clmlen, &cleanmarker) != 0) {
 				sys_errmsg("%s: MTD writeoob failure", mtd_device);
 				continue;
 			}
 		} else {
-			if (lseek(fd, (loff_t)offset, SEEK_SET) < 0) {
-				sys_errmsg("%s: MTD lseek failure", mtd_device);
-				continue;
-			}
-			if (write(fd, &cleanmarker, sizeof(cleanmarker)) != sizeof(cleanmarker)) {
+			if (pwrite(fd, &cleanmarker, sizeof(cleanmarker), (loff_t)offset) != sizeof(cleanmarker)) {
 				sys_errmsg("%s: MTD write failure", mtd_device);
 				continue;
 			}
 		}
-		verbose(!quiet, " Cleanmarker written at %"PRIx64, offset);
+		verbose(!quiet, " Cleanmarker written at %"PRIxoff_t, offset);
 	}
 	show_progress(&mtd, offset, eb, eb_start, eb_cnt);
 	bareverbose(!quiet, "\n");

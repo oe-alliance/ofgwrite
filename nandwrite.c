@@ -43,7 +43,7 @@
 #include "common.h"
 #include <libmtd.h>
 
-static void display_help(void)
+static void display_help(int status)
 {
 	my_printf(
 "Usage: nandwrite [OPTION] MTD_DEVICE [INPUTFILE|-]\n"
@@ -53,16 +53,18 @@ static void display_help(void)
 "  -m, --markbad           Mark blocks bad if write fails\n"
 "  -n, --noecc             Write without ecc\n"
 "  -N, --noskipbad         Write without bad block skipping\n"
-"  -o, --oob               Image contains oob data\n"
-"  -O, --onlyoob           Image contains oob data and only write the oob part\n"
-"  -s addr, --start=addr   Set start address (default is 0)\n"
-"  -p, --pad               Pad to page size\n"
+"  -o, --oob               Input contains oob data\n"
+"  -O, --onlyoob           Input contains oob data and only write the oob part\n"
+"  -s addr, --start=addr   Set output start address (default is 0)\n"
+"  -p, --pad               Pad writes to page size\n"
 "  -b, --blockalign=1|2|4  Set multiple of eraseblocks to align to\n"
+"      --input-skip=length Skip |length| bytes of the input file\n"
+"      --input-size=length Only read |length| bytes of the input file\n"
 "  -q, --quiet             Don't display progress messages\n"
-"      --help              Display this help and exit\n"
+"  -h, --help              Display this help and exit\n"
 "      --version           Output version information and exit\n"
 	);
-	exit(EXIT_SUCCESS);
+	exit(status);
 }
 
 static void display_version(void)
@@ -84,6 +86,8 @@ static void display_version(void)
 static const char	*standard_input = "-";
 static const char	*mtd_device, *img;
 static long long	mtdoffset = 0;
+static long long	inputskip = 0;
+static long long	inputsize = 0;
 static bool		quiet = false;
 static bool		writeoob = false;
 static bool		onlyoob = false;
@@ -100,10 +104,13 @@ static void process_options(int argc, char * const argv[])
 
 	for (;;) {
 		int option_index = 0;
-		static const char *short_options = "b:mnNoOpqs:a";
+		static const char short_options[] = "hb:mnNoOpqs:a";
 		static const struct option long_options[] = {
-			{"help", no_argument, 0, 0},
+			/* Order of these args with val==0 matters; see option_index. */
 			{"version", no_argument, 0, 0},
+			{"input-skip", required_argument, 0, 0},
+			{"input-size", required_argument, 0, 0},
+			{"help", no_argument, 0, 'h'},
 			{"blockalign", required_argument, 0, 'b'},
 			{"markbad", no_argument, 0, 'm'},
 			{"noecc", no_argument, 0, 'n'},
@@ -119,55 +126,60 @@ static void process_options(int argc, char * const argv[])
 
 		int c = getopt_long(argc, argv, short_options,
 				long_options, &option_index);
-		if (c == EOF) {
+		if (c == EOF)
 			break;
-		}
 
 		switch (c) {
-			case 0:
-				switch (option_index) {
-					case 0:
-						display_help();
-						break;
-					case 1:
-						display_version();
-						break;
-				}
+		case 0:
+			switch (option_index) {
+			case 0: /* --version */
+				display_version();
 				break;
-			case 'q':
-				quiet = true;
+			case 1: /* --input-skip */
+				inputskip = simple_strtoll(optarg, &error);
 				break;
-			case 'n':
-				noecc = true;
+			case 2: /* --input-size */
+				inputsize = simple_strtoll(optarg, &error);
 				break;
-			case 'N':
-				noskipbad = true;
-				break;
-			case 'm':
-				markbad = true;
-				break;
-			case 'o':
-				writeoob = true;
-				break;
-			case 'O':
-				writeoob = true;
-				onlyoob = true;
-				break;
-			case 'p':
-				pad = true;
-				break;
-			case 's':
-				mtdoffset = simple_strtoll(optarg, &error);
-				break;
-			case 'b':
-				blockalign = atoi(optarg);
-				break;
-			case 'a':
-				autoplace = true;
-				break;
-			case '?':
-				error++;
-				break;
+			}
+			break;
+		case 'q':
+			quiet = true;
+			break;
+		case 'n':
+			noecc = true;
+			break;
+		case 'N':
+			noskipbad = true;
+			break;
+		case 'm':
+			markbad = true;
+			break;
+		case 'o':
+			writeoob = true;
+			break;
+		case 'O':
+			writeoob = true;
+			onlyoob = true;
+			break;
+		case 'p':
+			pad = true;
+			break;
+		case 's':
+			mtdoffset = simple_strtoll(optarg, &error);
+			break;
+		case 'b':
+			blockalign = atoi(optarg);
+			break;
+		case 'a':
+			autoplace = true;
+			break;
+		case 'h':
+			display_help(EXIT_SUCCESS);
+			break;
+		case '?':
+			error++;
+			break;
 		}
 	}
 
@@ -194,7 +206,7 @@ static void process_options(int argc, char * const argv[])
 	 */
 
 	if (argc < 1 || argc > 2 || error)
-		display_help();
+		display_help(EXIT_FAILURE);
 
 	mtd_device = argv[0];
 
@@ -211,9 +223,8 @@ static void erase_buffer(void *buffer, size_t size)
 {
 	const uint8_t kEraseByte = 0xff;
 
-	if (buffer != NULL && size > 0) {
+	if (buffer != NULL && size > 0)
 		memset(buffer, kEraseByte, size);
-	}
 }
 
 /*
@@ -221,10 +232,10 @@ static void erase_buffer(void *buffer, size_t size)
  */
 int nandwrite_main(int argc, char * const argv[])
 {
-	int cnt = 0;
 	int fd = -1;
 	int ifd = -1;
-	int imglen = 0, pagelen;
+	int pagelen;
+	long long imglen = 0;
 	bool baderaseblock = false;
 	long long blockstart = -1;
 	struct mtd_dev_info mtd;
@@ -294,6 +305,7 @@ int nandwrite_main(int argc, char * const argv[])
 			switch (errno) {
 			case ENOTTY:
 				errmsg("ioctl MTDFILEMODE is missing");
+				return -1;
 			default:
 				sys_errmsg("MTDFILEMODE");
 				return -1;
@@ -302,11 +314,10 @@ int nandwrite_main(int argc, char * const argv[])
 	}
 
 	/* Determine if we are reading from standard input or from a file. */
-	if (strcmp(img, standard_input) == 0) {
+	if (strcmp(img, standard_input) == 0)
 		ifd = STDIN_FILENO;
-	} else {
+	else
 		ifd = open(img, O_RDONLY);
-	}
 
 	if (ifd == -1) {
 		perror(img);
@@ -315,34 +326,39 @@ int nandwrite_main(int argc, char * const argv[])
 
 	pagelen = mtd.min_io_size + ((writeoob) ? mtd.oob_size : 0);
 
-	/*
-	 * For the standard input case, the input size is merely an
-	 * invariant placeholder and is set to the write page
-	 * size. Otherwise, just use the input file size.
-	 *
-	 * TODO: Add support for the -l,--length=length option (see
-	 * previous discussion by Tommi Airikka <tommi.airikka@ericsson.com> at
-	 * <http://lists.infradead.org/pipermail/linux-mtd/2008-September/
-	 * 022913.html>
-	 */
-
 	if (ifd == STDIN_FILENO) {
-	    imglen = pagelen;
+		imglen = inputsize ? : pagelen;
+		if (inputskip) {
+			errmsg("seeking stdin not supported");
+			goto closeall;
+		}
 	} else {
-	    imglen = lseek(ifd, 0, SEEK_END);
-	    lseek(ifd, 0, SEEK_SET);
+		if (!inputsize) {
+			struct stat st;
+			if (fstat(ifd, &st)) {
+				sys_errmsg("unable to stat input image");
+				goto closeall;
+			}
+			imglen = st.st_size - inputskip;
+		} else
+			imglen = inputsize;
+
+		if (inputskip && lseek(ifd, inputskip, SEEK_CUR) == -1) {
+			sys_errmsg("lseek input by %lld failed", inputskip);
+			goto closeall;
+		}
 	}
 
 	/* Check, if file is page-aligned */
-	if ((!pad) && ((imglen % pagelen) != 0)) {
+	if (!pad && (imglen % pagelen) != 0) {
 		my_fprintf(stderr, "Input file is not page-aligned. Use the padding "
 				 "option.\n");
 		goto closeall;
 	}
 
 	/* Check, if length fits into device */
-	if (((imglen / pagelen) * mtd.min_io_size) > (mtd.size - mtdoffset)) {
-		my_fprintf(stderr, "Image %d bytes, NAND page %d bytes, OOB area %d"
+	if ((imglen / pagelen) * mtd.min_io_size > mtd.size - mtdoffset) {
+		my_fprintf(stderr, "Image %lld bytes, NAND page %d bytes, OOB area %d"
 				" bytes, device size %lld bytes\n",
 				imglen, pagelen, mtd.oob_size, mtd.size);
 		sys_errmsg("Input file does not fit into device");
@@ -366,8 +382,8 @@ int nandwrite_main(int argc, char * const argv[])
 	 * length is simply a quasi-boolean flag whose values are page
 	 * length or zero.
 	 */
-	while (((imglen > 0) || (writebuf < (filebuf + filebuf_len)))
-		&& (mtdoffset < mtd.size)) {
+	while ((imglen > 0 || writebuf < filebuf + filebuf_len)
+		&& mtdoffset < mtd.size) {
 		/*
 		 * New eraseblock, check for bad block(s)
 		 * Stay in the loop to be sure that, if mtdoffset changes because
@@ -398,8 +414,10 @@ int nandwrite_main(int argc, char * const argv[])
 			/* Check all the blocks in an erase block for bad blocks */
 			if (noskipbad)
 				continue;
+
 			do {
-				if ((ret = mtd_is_bad(&mtd, fd, offs / ebsize_aligned)) < 0) {
+				ret = mtd_is_bad(&mtd, fd, offs / ebsize_aligned);
+				if (ret < 0) {
 					sys_errmsg("%s: MTD get bad block failed", mtd_device);
 					goto closeall;
 				} else if (ret == 1) {
@@ -412,18 +430,24 @@ int nandwrite_main(int argc, char * const argv[])
 
 				if (baderaseblock) {
 					mtdoffset = blockstart + ebsize_aligned;
+
+					if (mtdoffset > mtd.size) {
+						errmsg("too many bad blocks, cannot complete request");
+						goto closeall;
+					}
 				}
+
 				offs +=  ebsize_aligned / blockalign;
 			} while (offs < blockstart + ebsize_aligned);
 
 		}
 
 		/* Read more data from the input if there isn't enough in the buffer */
-		if ((writebuf + mtd.min_io_size) > (filebuf + filebuf_len)) {
-			int readlen = mtd.min_io_size;
-
-			int alreadyread = (filebuf + filebuf_len) - writebuf;
-			int tinycnt = alreadyread;
+		if (writebuf + mtd.min_io_size > filebuf + filebuf_len) {
+			size_t readlen = mtd.min_io_size;
+			size_t alreadyread = (filebuf + filebuf_len) - writebuf;
+			size_t tinycnt = alreadyread;
+			ssize_t cnt = 0;
 
 			while (tinycnt < readlen) {
 				cnt = read(ifd, writebuf + tinycnt, readlen - tinycnt);
@@ -443,9 +467,9 @@ int nandwrite_main(int argc, char * const argv[])
 				 * the end of the "file". For nonstandard input,
 				 * leave it as-is to detect an early EOF.
 				 */
-				if (ifd == STDIN_FILENO) {
+				if (ifd == STDIN_FILENO)
 					imglen = 0;
-				}
+
 				break;
 			}
 
@@ -453,7 +477,7 @@ int nandwrite_main(int argc, char * const argv[])
 			if (tinycnt < readlen) {
 				if (!pad) {
 					my_fprintf(stderr, "Unexpected EOF. Expecting at least "
-							"%d more bytes. Use the padding option.\n",
+							"%zu more bytes. Use the padding option.\n",
 							readlen - tinycnt);
 					goto closeall;
 				}
@@ -463,8 +487,7 @@ int nandwrite_main(int argc, char * const argv[])
 			filebuf_len += readlen - alreadyread;
 			if (ifd != STDIN_FILENO) {
 				imglen -= tinycnt - alreadyread;
-			}
-			else if (cnt == 0) {
+			} else if (cnt == 0) {
 				/* No more bytes - we are done after writing the remaining bytes */
 				imglen = 0;
 			}
@@ -474,10 +497,11 @@ int nandwrite_main(int argc, char * const argv[])
 			oobbuf = writebuf + mtd.min_io_size;
 
 			/* Read more data for the OOB from the input if there isn't enough in the buffer */
-			if ((oobbuf + mtd.oob_size) > (filebuf + filebuf_len)) {
-				int readlen = mtd.oob_size;
-				int alreadyread = (filebuf + filebuf_len) - oobbuf;
-				int tinycnt = alreadyread;
+			if (oobbuf + mtd.oob_size > filebuf + filebuf_len) {
+				size_t readlen = mtd.oob_size;
+				size_t alreadyread = (filebuf + filebuf_len) - oobbuf;
+				size_t tinycnt = alreadyread;
+				ssize_t cnt;
 
 				while (tinycnt < readlen) {
 					cnt = read(ifd, oobbuf + tinycnt, readlen - tinycnt);
@@ -492,15 +516,14 @@ int nandwrite_main(int argc, char * const argv[])
 
 				if (tinycnt < readlen) {
 					my_fprintf(stderr, "Unexpected EOF. Expecting at least "
-							"%d more bytes for OOB\n", readlen - tinycnt);
+							"%zu more bytes for OOB\n", readlen - tinycnt);
 					goto closeall;
 				}
 
 				filebuf_len += readlen - alreadyread;
 				if (ifd != STDIN_FILENO) {
 					imglen -= tinycnt - alreadyread;
-				}
-				else if (cnt == 0) {
+				} else if (cnt == 0) {
 					/* No more bytes - we are done after writing the remaining bytes */
 					imglen = 0;
 				}
@@ -516,7 +539,7 @@ int nandwrite_main(int argc, char * const argv[])
 				writeoob ? mtd.oob_size : 0,
 				write_mode);
 		if (ret) {
-			int i;
+			long long i;
 			if (errno != EIO) {
 				sys_errmsg("%s: MTD write failure", mtd_device);
 				goto closeall;
@@ -531,9 +554,8 @@ int nandwrite_main(int argc, char * const argv[])
 				if (mtd_erase(mtd_desc, &mtd, fd, i / mtd.eb_size)) {
 					int errno_tmp = errno;
 					sys_errmsg("%s: MTD Erase failure", mtd_device);
-					if (errno_tmp != EIO) {
+					if (errno_tmp != EIO)
 						goto closeall;
-					}
 				}
 			}
 
@@ -561,8 +583,8 @@ closeall:
 	free(filebuf);
 	close(fd);
 
-	if (failed || ((ifd != STDIN_FILENO) && (imglen > 0))
-		   || (writebuf < (filebuf + filebuf_len)))
+	if (failed || (ifd != STDIN_FILENO && imglen > 0)
+		   || (writebuf < filebuf + filebuf_len))
 		sys_errmsg("Data was only partially written due to error");
 
 	/* Return happy */

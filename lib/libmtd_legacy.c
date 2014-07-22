@@ -170,6 +170,31 @@ int legacy_libmtd_open(void)
 }
 
 /**
+ * legacy_dev_presentl - legacy version of 'mtd_dev_present()'.
+ * @info: the MTD device information is returned here
+ *
+ * When the kernel does not provide sysfs files for the MTD subsystem,
+ * fall-back to parsing the /proc/mtd file to determine whether an mtd device
+ * number @mtd_num is present.
+ */
+int legacy_dev_present(int mtd_num)
+{
+	int ret;
+	struct proc_parse_info pi;
+
+	ret = proc_parse_start(&pi);
+	if (ret)
+		return -1;
+
+	while (proc_parse_next(&pi)) {
+		if (pi.mtd_num == mtd_num)
+			return 1;
+	}
+
+	return 0;
+}
+
+/**
  * legacy_mtd_get_info - legacy version of 'mtd_get_info()'.
  * @info: the MTD device information is returned here
  *
@@ -237,7 +262,7 @@ int legacy_get_dev_info(const char *node, struct mtd_dev_info *mtd)
 
 	mtd->mtd_num = mtd->minor / 2;
 
-	fd = open(node, O_RDWR);
+	fd = open(node, O_RDONLY);
 	if (fd == -1)
 		return sys_errmsg("cannot open \"%s\"", node);
 
@@ -296,6 +321,9 @@ int legacy_get_dev_info(const char *node, struct mtd_dev_info *mtd)
 		break;
 	case MTD_NANDFLASH:
 		strcpy((char *)mtd->type_str, "nand");
+		break;
+	case MTD_MLCNANDFLASH:
+		strcpy((char *)mtd->type_str, "mlc-nand");
 		break;
 	case MTD_DATAFLASH:
 		strcpy((char *)mtd->type_str, "dataflash");

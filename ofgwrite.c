@@ -484,7 +484,7 @@ int kernel_flash(char* device, char* filename)
 	if (type == -1)
 		return 0;
 
-	if (type == MTD_NANDFLASH)
+	if (type == MTD_NANDFLASH || type == MTD_MLCNANDFLASH)
 	{
 		my_printf("Found NAND flash\n");
 		// Erase
@@ -512,7 +512,7 @@ int kernel_flash(char* device, char* filename)
 	}
 	else
 	{
-		my_fprintf(stderr, "Flash type \"%s\" not supported\n", type);
+		my_fprintf(stderr, "Flash type \"%d\" not supported\n", type);
 		return 0;
 	}
 
@@ -590,7 +590,7 @@ int rootfs_flash(char* device, char* filename)
 	if (type == -1)
 		return 0;
 
-	if (type == MTD_NANDFLASH && rootfs_type == UBIFS)
+	if ((type == MTD_NANDFLASH || type == MTD_MLCNANDFLASH) && rootfs_type == UBIFS)
 	{
 		my_printf("Found NAND flash\n");
 		if (!ubi_write(device, filename))
@@ -680,9 +680,9 @@ int main(int argc, char *argv[])
 	// Open log
 	openlog("ofgwrite", LOG_CONS | LOG_NDELAY, LOG_USER);
 
-	my_printf("\nofgwrite Utility v1.9.2\n");
+	my_printf("\nofgwrite Utility v2.0.0\n");
 	my_printf("Author: Betacentauri\n");
-	my_printf("Based upon: mtd-utils-native-1.4.9\n");
+	my_printf("Based upon: mtd-utils-native-1.5.1\n");
 	my_printf("Use at your own risk! Make always a backup before use!\n");
 	my_printf("Don't use it if you use multiple ubi volumes in ubi layer!\n\n");
 
