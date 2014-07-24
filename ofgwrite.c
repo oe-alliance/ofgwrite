@@ -455,6 +455,28 @@ int flash_erase(char* device, char* context)
 	return 1;
 }
 
+int flash_erase_jffs2(char* device, char* context)
+{
+	optind = 0; // reset getopt_long
+	char* argv[] = {
+		"flash_erase",	// program name
+		"-j",			// format the device for jffs2
+		device,			// device
+		"0",			// start offset
+		"0",			// block count
+		NULL
+	};
+	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
+
+	if (!quiet)
+		my_printf("Erasing %s: flash_erase -j %s 0 0\n", context, device);
+	if (!no_write)
+		if (flash_erase_main(argc, argv) != 0)
+			return 0;
+
+	return 1;
+}
+
 int flash_write(char* device, char* filename)
 {
 	optind = 0; // reset getopt_long
@@ -596,6 +618,14 @@ int rootfs_flash(char* device, char* filename)
 		if (!ubi_write(device, filename))
 			return 0;
 	}
+	else if ((type == MTD_NANDFLASH || type == MTD_MLCNANDFLASH) && rootfs_type == JFFS2)
+	{
+		my_printf("Found NAND flash\n");
+		if (!flash_erase_jffs2(device, "rootfs"))
+			return 0;
+		if (!flash_write(device, filename))
+			return 0;
+	}
 	else if (type == MTD_NORFLASH && rootfs_type == JFFS2)
 	{
 		my_printf("Found NOR flash\n");
@@ -680,7 +710,7 @@ int main(int argc, char *argv[])
 	// Open log
 	openlog("ofgwrite", LOG_CONS | LOG_NDELAY, LOG_USER);
 
-	my_printf("\nofgwrite Utility v2.0.0\n");
+	my_printf("\nofgwrite Utility v2.1.0\n");
 	my_printf("Author: Betacentauri\n");
 	my_printf("Based upon: mtd-utils-native-1.5.1\n");
 	my_printf("Use at your own risk! Make always a backup before use!\n");

@@ -101,6 +101,7 @@ static int		blockalign = 1; /* default to using actual block size */
 static void process_options(int argc, char * const argv[])
 {
 	int error = 0;
+	mtdoffset = 0;
 
 	for (;;) {
 		int option_index = 0;
