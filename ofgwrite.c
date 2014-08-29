@@ -806,6 +806,7 @@ int main(int argc, char *argv[])
 			ret = system("killall CCcam");
 			ret = system("killall hddtemp");
 			ret = system("killall transmission-daemon");
+			ret = system("killall openvpn");
 			// ignore return values, because the processes might not run
 		}
 
