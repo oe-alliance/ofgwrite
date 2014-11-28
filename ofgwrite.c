@@ -807,6 +807,7 @@ int main(int argc, char *argv[])
 			ret = system("killall hddtemp");
 			ret = system("killall transmission-daemon");
 			ret = system("killall openvpn");
+			ret = system("/etc/init.d/sabnzbd stop");
 			// ignore return values, because the processes might not run
 		}
 
