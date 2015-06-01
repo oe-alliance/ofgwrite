@@ -811,7 +811,7 @@ int main(int argc, char *argv[])
 			// ignore return values, because the processes might not run
 		}
 
-		sleep(4);
+		sleep(12);
 
 		// sync filesystem
 		my_printf("Syncing filesystem\n");
