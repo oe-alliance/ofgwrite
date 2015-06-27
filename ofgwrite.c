@@ -804,6 +804,8 @@ int main(int argc, char *argv[])
 			ret = system("killall rpc.statd");
 			ret = system("/etc/init.d/softcam stop");
 			ret = system("killall CCcam");
+			ret = system("killall -9 oscam");
+			ret = system("killall -9 oscam_oscamupdater");
 			ret = system("killall hddtemp");
 			ret = system("killall transmission-daemon");
 			ret = system("killall openvpn");
