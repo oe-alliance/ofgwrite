@@ -427,7 +427,7 @@ static int mark_bad(const struct mtd_dev_info *mtd, struct ubi_scan_info *si, in
 static int flash_image(libmtd_t libmtd, const struct mtd_dev_info *mtd,
 		       const struct ubigen_info *ui, struct ubi_scan_info *si)
 {
-	set_step(4, "Flashing UBI image");
+	set_step("Flashing UBI image");
 
 	int fd, img_ebs, eb, written_ebs = 0, divisor, skip_data_read = 0;
 	off_t st_size;
@@ -565,7 +565,7 @@ static int format(libmtd_t libmtd, const struct mtd_dev_info *mtd,
 		  const struct ubigen_info *ui, struct ubi_scan_info *si,
 		  int start_eb, int novtbl)
 {
-	set_step(5, "Formating remaining eraseblocks");
+	set_step("Formating remaining eraseblocks");
 
 	int eb, err, write_size;
 	struct ubi_ec_hdr *hdr;

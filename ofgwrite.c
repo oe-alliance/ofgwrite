@@ -705,12 +705,54 @@ void setRootfsType()
 	rootfs_type = UNKNOWN;
 }
 
+int check_e2_stopped()
+{
+	FILE *fp;
+	int nbytes = 100;
+	char* ps_line = (char*)malloc(nbytes + 1);
+	int time = 0;
+	int max_time = 30;
+	int e2_found = 1;
+
+	set_step_progress(0);
+	if (!quiet)
+		my_printf("Checking E2 is running...\n");
+	while (time < max_time && e2_found)
+	{
+		fp = popen("busybox ps | grep /usr/bin/enigma2 | grep -v grep | grep -v enigma2.sh", "r");
+		if (fp == NULL)
+		{
+			my_printf("Error ps cannot be executed!\n");
+			return 0;
+		}
+
+		if (getline(&ps_line, &nbytes, fp) == -1)
+		{
+			e2_found = 0;
+			if (!quiet)
+				my_printf("E2 is stopped\n");
+		}
+		else
+		{
+			sleep(2);
+			time += 2;
+			if (!quiet)
+				my_printf("E2 still running\n");
+		}
+		set_step_progress(time * 100 / max_time);
+		pclose(fp);
+	}
+	if (e2_found)
+		return 0;
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	// Open log
 	openlog("ofgwrite", LOG_CONS | LOG_NDELAY, LOG_USER);
 
-	my_printf("\nofgwrite Utility v2.1.0\n");
+	my_printf("\nofgwrite Utility v2.2.0\n");
 	my_printf("Author: Betacentauri\n");
 	my_printf("Based upon: mtd-utils-native-1.5.1\n");
 	my_printf("Use at your own risk! Make always a backup before use!\n");
@@ -723,16 +765,15 @@ int main(int argc, char *argv[])
 	if (!ret || show_help)
 	{
 		printUsage();
-		return -1;
+		return EXIT_FAILURE;
 	}
 
 	found_mtd_kernel = 0;
 	found_mtd_rootfs = 0;
 
 	my_printf("\n");
-	
 	if (!read_mtd_file())
-		return -1;
+		return EXIT_FAILURE;
 
 	my_printf("\n");
 
@@ -747,7 +788,7 @@ int main(int argc, char *argv[])
 			my_printf(", because no kernel MTD entry was found\n");
 		else
 			my_printf(", because no kernel file was found\n");
-		return -1;
+		return EXIT_FAILURE;
 	}
 
 	if (flash_rootfs && (!found_mtd_rootfs || rootfs_filename[0] == '\0' || rootfs_type == UNKNOWN))
@@ -759,19 +800,39 @@ int main(int argc, char *argv[])
 			my_printf(", because no rootfs file was found\n");
 		else
 			my_printf(", because rootfs type is unknown\n");
-		return -1;
+		return EXIT_FAILURE;
 	}
 
-	if (flash_kernel)
+	if (flash_kernel && !flash_rootfs) // flash only kernel
 	{
-		if (quiet)
-			my_printf("Flashing kernel ...");
+		if (!quiet)
+			my_printf("Flashing kernel ...\n");
+
+		init_framebuffer(1);
+		set_overall_text("Flashing kernel");
+		set_step("Writing kernel data");
 
 		if (!kernel_flash(kernel_mtd_device, kernel_filename))
-			return -1;
+			ret = EXIT_FAILURE;
+		else
+			ret = EXIT_SUCCESS;
 
-		if (quiet)
+		if (!quiet && ret == EXIT_SUCCESS)
+		{
 			my_printf("done\n");
+			set_step("Successfully flashed kernel!");
+			sleep(5);
+		}
+		else if (ret == EXIT_FAILURE)
+		{
+			my_printf("failed. System won't boot. Please flash backup!\n");
+			set_error_text1("Error flashing kernel. System won't boot!");
+			set_error_text2("Please flash backup! Go back to E2 in 60 sec");
+			sleep(60);
+		}
+		closelog();
+		close_framebuffer();
+		return ret;
 	}
 
 	if (flash_rootfs)
@@ -786,14 +847,16 @@ int main(int argc, char *argv[])
 			if (ret)
 			{
 				my_printf("Error switching mode!\n");
-				return -1;
+				return EXIT_FAILURE;
 			}
 		}
-		sleep(4);
 
-		init_framebuffer(5);
-		set_overall_text("Flashing Rootfs");
-		set_step(1, "Killing processes");
+		if (flash_kernel)
+			init_framebuffer(7);
+		else
+			init_framebuffer(6);
+		set_overall_text("Flashing image");
+		set_step("Killing processes");
 
 		// kill nmbd, smbd, rpc.mountd and rpc.statd -> otherwise remounting root read-only is not possible
 		if (!no_write)
@@ -813,51 +876,98 @@ int main(int argc, char *argv[])
 			// ignore return values, because the processes might not run
 		}
 
-		sleep(12);
+		// it can take several seconds until E2 is shut down
+		// wait because otherwise remounting read only is not possible
+		set_step("Wait until E2 is stopped");
+		if (!no_write)
+		{
+			if (!check_e2_stopped())
+			{
+				my_printf("Error E2 can't be stopped! Abort flashing.\n");
+				set_error_text("Error E2 can't be stopped! Abort flashing.");
+				system("init 3");
+				closelog();
+				close_framebuffer();
+				return EXIT_FAILURE;
+			}
+		}
+		// Remove rest of E2 osd
+		clearOSD();
+		// reload background image because if E2 was running when init_framebuffer was executed the image is not visible
+		loadBackgroundImage();
 
 		// sync filesystem
 		my_printf("Syncing filesystem\n");
-		set_step(2, "Syncing filesystem");
+		set_step("Syncing filesystem");
 		ret = system("sync");
 		if (ret)
 		{
-			my_printf("Error syncing filesystem!\n");
-			set_error_text("Error syncing filesystem!");
-			return -1;
+			my_printf("Error syncing filesystem! Rebooting in 60 seconds\n");
+			set_error_text1("Error syncing filesystem!");
+			set_error_text2("Rebooting in 60 seconds");
+			sleep(60);
+			reboot(LINUX_REBOOT_CMD_RESTART);
+			return EXIT_FAILURE;
 		}
 
-		sleep(3);
+		sleep(1);
 
 		// Remount root read-only
 		my_printf("Remounting rootfs read-only\n");
-		set_step(3, "Remounting rootfs read-only");
+		set_step("Remounting rootfs read-only");
 		if (!no_write)
 		{
 			ret = system("mount -r -o remount /");
 			if (ret)
 			{
-				my_printf("Error remounting root!\n");
-				set_error_text("Error remounting root!");
-				return -1;
+				my_printf("Error remounting root! Abort flashing. Try to restart E2 in 30 seconds\n");
+				set_error_text1("Error remounting root! Abort flashing.");
+				set_error_text2("Try to restart E2 in 30 seconds");
+				sleep(30);
+				system("init 3");
+				closelog();
+				close_framebuffer();
+				return EXIT_FAILURE;
 			}
 		}
 
 		// sync again (most likely unnecessary)
 		ret = system("sync");
-		sleep(2);
+
+		//Flash kernel
+		if (flash_kernel)
+		{
+			if (!quiet)
+				my_printf("Flashing kernel ...\n");
+
+			set_step("Flashing kernel");
+			if (!kernel_flash(kernel_mtd_device, kernel_filename))
+			{
+				my_printf("Error flashing kernel. System won't boot. Please flash backup! Starting E2 in 60 seconds\n");
+				set_error_text1("Error flashing kernel. System won't boot!");
+				set_error_text2("Please flash backup! Starting E2 in 60 sec");
+				sleep(60);
+				system("init 3");
+				closelog();
+				close_framebuffer();
+				return EXIT_FAILURE;
+			}
+			my_printf("Successfully flashed kernel!\n");
+		}
 
 		// Flash rootfs
 		if (!rootfs_flash(rootfs_mtd_device, rootfs_filename))
 		{
 			my_printf("Error flashing rootfs! System won't boot. Please flash backup! System will reboot in 60 seconds\n");
-			set_error_text("Error flashing rootfs! System won't boot. Please flash backup! Rebooting in 60 seconds");
+			set_error_text1("Error flashing rootfs. System won't boot!");
+			set_error_text2("Please flash backup! Rebooting in 60 sec");
 			sleep(60);
 			reboot(LINUX_REBOOT_CMD_RESTART);
-			return -1;
+			return EXIT_FAILURE;
 		}
 
 		my_printf("Successfully flashed rootfs! Rebooting in 3 seconds...\n");
-		set_step(6, "Successfully flashed! Rebooting in 3 seconds");
+		set_step("Successfully flashed! Rebooting in 3 seconds");
 		fflush(stdout);
 		fflush(stderr);
 		sleep(3);
@@ -870,5 +980,5 @@ int main(int argc, char *argv[])
 	closelog();
 	close_framebuffer();
 
-	return 0;
+	return EXIT_SUCCESS;
 }

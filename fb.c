@@ -30,6 +30,7 @@ char g_fbDevice[] = "/dev/fb0";
 int g_manual_blit = 0;
 struct fb_var_screeninfo g_screeninfo_var;
 struct fb_fix_screeninfo g_screeninfo_fix;
+int g_step = 1;
 
 // box
 struct window_t
@@ -378,13 +379,15 @@ void set_step_text(char* str)
 				, 0);
 }
 
-void set_step(int step, char* str)
+void set_step(char* str)
 {
 	if (g_fbFd == -1)
 		return;
 
 	set_step_text(str);
-	set_overall_progress(step);
+	set_overall_progress(g_step);
+	g_step++;
+	set_step_progress(0);
 }
 
 void set_info_text(char* str)
@@ -418,6 +421,57 @@ void set_error_text(char* str)
 				, g_window.y1 + g_window.height * 0.90
 				, RED
 				, 0);
+}
+
+void set_error_text1(char* str)
+{
+	if (g_fbFd == -1)
+		return;
+
+	// hide text
+	paint_box(g_window.x1 + 10
+			, g_window.y1 + g_window.height * 0.85
+			, g_window.x2
+			, g_window.y2
+			, BLACK);
+
+	// display text
+	render_string(str
+				, g_window.x1 + 10
+				, g_window.y1 + g_window.height * 0.85
+				, RED
+				, 0);
+}
+
+void set_error_text2(char* str)
+{
+	if (g_fbFd == -1)
+		return;
+
+	// hide text
+	paint_box(g_window.x1 + 10
+			, g_window.y1 + g_window.height * 0.91
+			, g_window.x2
+			, g_window.y2
+			, BLACK);
+
+	// display text
+	render_string(str
+				, g_window.x1 + 10
+				, g_window.y1 + g_window.height * 0.91
+				, RED
+				, 0);
+}
+
+void clearOSD()
+{
+	if (g_fbFd == -1)
+		return;
+
+	paint_box(0, 0, g_screeninfo_var.xres, g_window.y1, TRANS);
+	paint_box(0, g_window.y1, g_window.x1, g_screeninfo_var.yres, TRANS);
+	paint_box(g_window.x2, g_window.y1, g_screeninfo_var.xres, g_screeninfo_var.yres, TRANS);
+	paint_box(g_window.x1, g_window.y2, g_window.x2, g_screeninfo_var.yres, TRANS);
 }
 
 int loadBackgroundImage()

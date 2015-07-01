@@ -254,6 +254,7 @@ int nandwrite_main(int argc, char * const argv[])
 	libmtd_t mtd_desc;
 	int ebsize_aligned;
 	uint8_t write_mode;
+	long long ofg_imglen;
 
 	process_options(argc, argv);
 
@@ -341,6 +342,7 @@ int nandwrite_main(int argc, char * const argv[])
 				goto closeall;
 			}
 			imglen = st.st_size - inputskip;
+			ofg_imglen = imglen;
 		} else
 			imglen = inputsize;
 
@@ -488,6 +490,7 @@ int nandwrite_main(int argc, char * const argv[])
 			filebuf_len += readlen - alreadyread;
 			if (ifd != STDIN_FILENO) {
 				imglen -= tinycnt - alreadyread;
+				set_step_progress((int)((long long)(ofg_imglen - imglen) * 100 / (ofg_imglen)));
 			} else if (cnt == 0) {
 				/* No more bytes - we are done after writing the remaining bytes */
 				imglen = 0;
