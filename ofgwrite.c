@@ -510,6 +510,7 @@ int kernel_flash(char* device, char* filename)
 	{
 		my_printf("Found NAND flash\n");
 		// Erase
+		set_step("Erasing kernel");
 		if (!flash_erase(kernel_mtd_device, "kernel"))
 		{
 			my_printf("Error erasing kernel! System might not boot. If you have problems please flash backup!\n");
@@ -517,6 +518,7 @@ int kernel_flash(char* device, char* filename)
 		}
 
 		// Flash
+		set_step("Writing kernel");
 		if (!flash_write(kernel_mtd_device, kernel_filename))
 		{
 			my_printf("Error flashing kernel! System won't boot. Please flash backup!\n");
@@ -752,7 +754,7 @@ int main(int argc, char *argv[])
 	// Open log
 	openlog("ofgwrite", LOG_CONS | LOG_NDELAY, LOG_USER);
 
-	my_printf("\nofgwrite Utility v2.2.0\n");
+	my_printf("\nofgwrite Utility v2.2.1\n");
 	my_printf("Author: Betacentauri\n");
 	my_printf("Based upon: mtd-utils-native-1.5.1\n");
 	my_printf("Use at your own risk! Make always a backup before use!\n");
@@ -808,9 +810,8 @@ int main(int argc, char *argv[])
 		if (!quiet)
 			my_printf("Flashing kernel ...\n");
 
-		init_framebuffer(1);
+		init_framebuffer(2);
 		set_overall_text("Flashing kernel");
-		set_step("Writing kernel data");
 
 		if (!kernel_flash(kernel_mtd_device, kernel_filename))
 			ret = EXIT_FAILURE;
@@ -851,10 +852,10 @@ int main(int argc, char *argv[])
 			}
 		}
 
+		int steps = 6;
 		if (flash_kernel)
-			init_framebuffer(7);
-		else
-			init_framebuffer(6);
+			steps+= 2;
+		init_framebuffer(steps);
 		set_overall_text("Flashing image");
 		set_step("Killing processes");
 
@@ -940,7 +941,6 @@ int main(int argc, char *argv[])
 			if (!quiet)
 				my_printf("Flashing kernel ...\n");
 
-			set_step("Flashing kernel");
 			if (!kernel_flash(kernel_mtd_device, kernel_filename))
 			{
 				my_printf("Error flashing kernel. System won't boot. Please flash backup! Starting E2 in 60 seconds\n");

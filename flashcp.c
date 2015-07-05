@@ -299,7 +299,10 @@ int flashcp_main (int argc,char *argv[])
 	erase.length = (filestat.st_size + mtd.erasesize - 1) / mtd.erasesize;
 	erase.length *= mtd.erasesize;
 
-	set_step("Erasing rootfs");
+	if (flags & FLAG_REBOOT)
+		set_step("Erasing rootfs");
+	else
+		set_step("Erasing kernel");
 
 	if (flags & FLAG_VERBOSE)
 	{
@@ -345,7 +348,10 @@ int flashcp_main (int argc,char *argv[])
 	 * write the entire file to flash *
 	 **********************************/
 
-	set_step("Writing rootfs");
+	if (flags & FLAG_REBOOT)
+		set_step("Writing rootfs");
+	else
+		set_step("Writing kernel");
 
 	if (flags & FLAG_VERBOSE) log_printf (LOG_NORMAL,"Writing data: 0k/%luk (0%%)",KB (filestat.st_size));
 	size = filestat.st_size;

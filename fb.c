@@ -8,7 +8,6 @@
 #include <unistd.h>
 #include <linux/kd.h>
 #include <sys/ioctl.h>
-#include <assert.h>
 
 #include "font.h"
 
@@ -227,7 +226,10 @@ int close_framebuffer()
 
 void set_step_progress(int percent)
 {
-	assert(percent >= 0 && percent <= 100);
+	if (percent < 0)
+		percent = 0;
+	if (percent > 100)
+		percent = 100;
 	int x = g_pb_step.x1 + g_pb_step.outer_border_width + g_pb_step.inner_border_width;
 	int y = g_pb_step.y1 + g_pb_step.outer_border_width + g_pb_step.inner_border_width;
 
@@ -241,7 +243,10 @@ void set_step_progress(int percent)
 void set_overall_progress(int step)
 {
 	int percent = (step - 1) * 100 / g_pb_overall.steps;
-	assert(percent >= 0 && percent <= 100);
+	if (percent < 0)
+		percent = 0;
+	if (percent > 100)
+		percent = 100;
 	int x = g_pb_overall.x1 + g_pb_overall.outer_border_width + g_pb_overall.inner_border_width;
 	int y = g_pb_overall.y1 + g_pb_overall.outer_border_width + g_pb_overall.inner_border_width;
 
