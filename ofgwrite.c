@@ -713,7 +713,7 @@ int check_e2_stopped()
 	int nbytes = 100;
 	char* ps_line = (char*)malloc(nbytes + 1);
 	int time = 0;
-	int max_time = 30;
+	int max_time = 60;
 	int e2_found = 1;
 
 	set_step_progress(0);
@@ -754,7 +754,7 @@ int main(int argc, char *argv[])
 	// Open log
 	openlog("ofgwrite", LOG_CONS | LOG_NDELAY, LOG_USER);
 
-	my_printf("\nofgwrite Utility v2.2.1\n");
+	my_printf("\nofgwrite Utility v2.2.2\n");
 	my_printf("Author: Betacentauri\n");
 	my_printf("Based upon: mtd-utils-native-1.5.1\n");
 	my_printf("Use at your own risk! Make always a backup before use!\n");
