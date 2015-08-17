@@ -754,7 +754,7 @@ int main(int argc, char *argv[])
 	// Open log
 	openlog("ofgwrite", LOG_CONS | LOG_NDELAY, LOG_USER);
 
-	my_printf("\nofgwrite Utility v2.2.2\n");
+	my_printf("\nofgwrite Utility v2.2.3\n");
 	my_printf("Author: Betacentauri\n");
 	my_printf("Based upon: mtd-utils-native-1.5.1\n");
 	my_printf("Use at your own risk! Make always a backup before use!\n");
@@ -870,6 +870,7 @@ int main(int argc, char *argv[])
 			ret = system("killall CCcam");
 			ret = system("killall -9 oscam");
 			ret = system("killall -9 oscam_oscamupdater");
+			ret = system("killall -9 oscam_emu");
 			ret = system("killall hddtemp");
 			ret = system("killall transmission-daemon");
 			ret = system("killall openvpn");
