@@ -754,7 +754,7 @@ int main(int argc, char *argv[])
 	// Open log
 	openlog("ofgwrite", LOG_CONS | LOG_NDELAY, LOG_USER);
 
-	my_printf("\nofgwrite Utility v2.2.4\n");
+	my_printf("\nofgwrite Utility v2.2.5\n");
 	my_printf("Author: Betacentauri\n");
 	my_printf("Based upon: mtd-utils-native-1.5.1\n");
 	my_printf("Use at your own risk! Make always a backup before use!\n");
@@ -870,6 +870,8 @@ int main(int argc, char *argv[])
 			ret = system("killall CCcam");
 			ret = system("pkill -9 -f '[Oo][Ss][Cc][Aa][Mm]'");
 			ret = system("ps w | grep -i oscam | grep -v grep | awk '{print $1}'| xargs kill -9");
+			ret = system("pkill -9 -f '[Ww][Ii][Cc][Aa][Rr][Dd][Dd]'");
+			ret = system("ps w | grep -i wicardd | grep -v grep | awk '{print $1}'| xargs kill -9");
 			ret = system("killall hddtemp");
 			ret = system("killall transmission-daemon");
 			ret = system("killall openvpn");
