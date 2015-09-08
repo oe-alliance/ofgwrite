@@ -101,8 +101,7 @@ void paint_box(int x1, int y1, int x2, int y2, char* color)
 	int x,y;
 	for (y = y1; y < y2; y++)
 		for (x = x1; x < x2; x++)
-			memcpy(&g_lfb[x * 4 + y * g_screeninfo_fix.line_length], color, 4);
-	blit();
+			memcpy(&g_lfb[(x + g_screeninfo_var.xoffset) * 4 + (y + g_screeninfo_var.yoffset) * g_screeninfo_fix.line_length], color, 4);
 }
 
 void init_progressbars(int steps)
@@ -146,6 +145,22 @@ void init_progressbars(int steps)
 			, g_pb_step.x2 - g_pb_step.outer_border_width
 			, g_pb_step.y2 - g_pb_step.outer_border_width
 			, BLACK);
+}
+
+void close_framebuffer()
+{
+	if (g_lfb)
+	{
+		msync(g_lfb, g_screeninfo_fix.smem_len, MS_SYNC);
+		munmap(g_lfb, g_screeninfo_fix.smem_len);
+	}
+
+	if (g_fbFd >= 0)
+	{
+		disableManualBlit();
+		close(g_fbFd);
+		g_fbFd = -1;
+	}
 }
 
 int open_framebuffer()
@@ -208,22 +223,6 @@ nolfb:
 	return 0;
 }
 
-int close_framebuffer()
-{
-	if (g_lfb)
-	{
-		msync(g_lfb, g_screeninfo_fix.smem_len, MS_SYNC);
-		munmap(g_lfb, g_screeninfo_fix.smem_len);
-	}
-
-	if (g_fbFd >= 0)
-	{
-		disableManualBlit();
-		close(g_fbFd);
-		g_fbFd = -1;
-	}
-}
-
 void set_step_progress(int percent)
 {
 	if (percent < 0)
@@ -238,6 +237,7 @@ void set_step_progress(int percent)
 			, (int)(x + g_pb_step.width / 100.0 * percent)
 			, y + g_pb_step.height
 			, WHITE);
+	blit();
 }
 
 void set_overall_progress(int step)
@@ -274,7 +274,7 @@ void render_char(char ch, int x, int y, char* color, int thick)
 	const unsigned short* bitmap = font[ch-0x20];
 
 	int h, w, line;
-	const unsigned int pos = y * g_screeninfo_fix.line_length + x * 4;
+	const unsigned int pos = (y + g_screeninfo_var.yoffset) * g_screeninfo_fix.line_length + (x + g_screeninfo_var.xoffset) * 4;
 	for (h = 0; h < CHAR_HEIGHT; h++)
 	{
 		line = bitmap[h] >> 2;  // ignore 2 lsb bits
@@ -301,7 +301,6 @@ void render_string(char* str, int x, int y, char* color, int thick)
 	int i;
 	for (i = 0; i < strlen(str); i++)
 		render_char(str[i], x + i * (CHAR_WIDTH + CHAR_WIDTH * thick), y, color, thick);
-	blit();
 }
 
 void set_title(char* str)
@@ -322,9 +321,11 @@ void set_title(char* str)
 				, g_window.y1 + g_window.height * 0.10
 				, WHITE
 				, 1);
+
+	blit();
 }
 
-set_sub_title(char* str)
+void set_sub_title(char* str)
 {
 	if (g_fbFd == -1)
 		return;
@@ -342,6 +343,8 @@ set_sub_title(char* str)
 				, g_window.y1 + g_window.height * 0.2
 				, WHITE
 				, 0);
+
+	blit();
 }
 
 void set_overall_text(char* str)
@@ -362,6 +365,8 @@ void set_overall_text(char* str)
 				, g_window.y1 + g_window.height * 0.35
 				, WHITE
 				, 0);
+
+	blit();
 }
 
 void set_step_text(char* str)
@@ -382,6 +387,8 @@ void set_step_text(char* str)
 				, g_window.y1 + g_window.height * 0.6
 				, WHITE
 				, 0);
+
+	blit();
 }
 
 void set_step(char* str)
@@ -406,6 +413,8 @@ void set_info_text(char* str)
 				, g_window.y1 + g_window.height * 0.90
 				, WHITE
 				, 0);
+
+	blit();
 }
 
 void set_error_text(char* str)
@@ -426,6 +435,8 @@ void set_error_text(char* str)
 				, g_window.y1 + g_window.height * 0.90
 				, RED
 				, 0);
+
+	blit();
 }
 
 void set_error_text1(char* str)
@@ -446,6 +457,8 @@ void set_error_text1(char* str)
 				, g_window.y1 + g_window.height * 0.85
 				, RED
 				, 0);
+
+	blit();
 }
 
 void set_error_text2(char* str)
@@ -466,6 +479,8 @@ void set_error_text2(char* str)
 				, g_window.y1 + g_window.height * 0.91
 				, RED
 				, 0);
+
+	blit();
 }
 
 void clearOSD()
@@ -477,6 +492,7 @@ void clearOSD()
 	paint_box(0, g_window.y1, g_window.x1, g_screeninfo_var.yres, TRANS);
 	paint_box(g_window.x2, g_window.y1, g_screeninfo_var.xres, g_screeninfo_var.yres, TRANS);
 	paint_box(g_window.x1, g_window.y2, g_window.x2, g_screeninfo_var.yres, TRANS);
+	blit();
 }
 
 int loadBackgroundImage()
@@ -503,7 +519,7 @@ int loadBackgroundImage()
 	return 1;
 }
 
-int init_framebuffer(int steps)
+int init_framebuffer(int steps, const char* version)
 {
 	if (g_fbFd == -1)
 		if (!open_framebuffer())
@@ -529,6 +545,9 @@ int init_framebuffer(int steps)
 	init_progressbars(steps);
 
 	set_title("ofgwrite Flashing Tool");
-	set_sub_title("written by Betacentauri");
+	char version_string[60];
+	strcpy(version_string, "written by Betacentauri  v.");
+	strcat(version_string, version);
+	set_sub_title(version_string);
 	return 1;
 }

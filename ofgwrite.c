@@ -15,6 +15,7 @@
 #include <mtd/mtd-abi.h>
 
 
+const char ofgwrite_version[] = "2.2.6";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -754,7 +755,7 @@ int main(int argc, char *argv[])
 	// Open log
 	openlog("ofgwrite", LOG_CONS | LOG_NDELAY, LOG_USER);
 
-	my_printf("\nofgwrite Utility v2.2.5\n");
+	my_printf("\nofgwrite Utility v%s\n", ofgwrite_version);
 	my_printf("Author: Betacentauri\n");
 	my_printf("Based upon: mtd-utils-native-1.5.1\n");
 	my_printf("Use at your own risk! Make always a backup before use!\n");
@@ -810,7 +811,7 @@ int main(int argc, char *argv[])
 		if (!quiet)
 			my_printf("Flashing kernel ...\n");
 
-		init_framebuffer(2);
+		init_framebuffer(2, ofgwrite_version);
 		set_overall_text("Flashing kernel");
 
 		if (!kernel_flash(kernel_mtd_device, kernel_filename))
@@ -855,7 +856,7 @@ int main(int argc, char *argv[])
 		int steps = 6;
 		if (flash_kernel)
 			steps+= 2;
-		init_framebuffer(steps);
+		init_framebuffer(steps, ofgwrite_version);
 		set_overall_text("Flashing image");
 		set_step("Killing processes");
 

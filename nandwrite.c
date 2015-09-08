@@ -254,7 +254,7 @@ int nandwrite_main(int argc, char * const argv[])
 	libmtd_t mtd_desc;
 	int ebsize_aligned;
 	uint8_t write_mode;
-	long long ofg_imglen;
+	long long ofg_imglen = 1;
 
 	process_options(argc, argv);
 
