@@ -15,7 +15,7 @@
 #include <mtd/mtd-abi.h>
 
 
-const char ofgwrite_version[] = "2.2.6";
+const char ofgwrite_version[] = "2.2.7";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -873,6 +873,7 @@ int main(int argc, char *argv[])
 			ret = system("ps w | grep -i oscam | grep -v grep | awk '{print $1}'| xargs kill -9");
 			ret = system("pkill -9 -f '[Ww][Ii][Cc][Aa][Rr][Dd][Dd]'");
 			ret = system("ps w | grep -i wicardd | grep -v grep | awk '{print $1}'| xargs kill -9");
+			ret = system("killall kodi.bin");
 			ret = system("killall hddtemp");
 			ret = system("killall transmission-daemon");
 			ret = system("killall openvpn");
