@@ -15,7 +15,7 @@
 #include <mtd/mtd-abi.h>
 
 
-const char ofgwrite_version[] = "2.2.8";
+const char ofgwrite_version[] = "2.3.0";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;

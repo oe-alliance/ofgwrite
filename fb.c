@@ -18,6 +18,10 @@
 #define GREEN "\x00\xFF\x00\xFF"
 #define BLUE  "\xFF\x00\x00\xFF"
 
+#define FB_WIDTH 1280
+#define FB_HEIGHT 720
+#define FB_BPP 32
+
 #ifndef FBIO_BLIT
 #define FBIO_SET_MANUAL_BLIT _IOW('F', 0x21, __u8)
 #define FBIO_BLIT 0x22
@@ -163,6 +167,23 @@ void close_framebuffer()
 	}
 }
 
+int get_screeninfo()
+{
+	if (ioctl(g_fbFd, FBIOGET_VSCREENINFO, &g_screeninfo_var) < 0)
+	{
+		perror("FBIOGET_VSCREENINFO");
+		return 0;
+	}
+
+	if (ioctl(g_fbFd, FBIOGET_FSCREENINFO, &g_screeninfo_fix) < 0)
+	{
+		perror("FBIOGET_FSCREENINFO");
+		return 0;
+	}
+
+	return 1;
+}
+
 int open_framebuffer()
 {
 	g_fbFd = open(g_fbDevice, O_RDWR);
@@ -170,33 +191,6 @@ int open_framebuffer()
 	{
 		perror(g_fbDevice);
 		goto nolfb;
-	}
-
-	if (ioctl(g_fbFd, FBIOGET_VSCREENINFO, &g_screeninfo_var) < 0)
-	{
-		perror("FBIOGET_VSCREENINFO");
-		goto nolfb;
-	}
-
-	if (ioctl(g_fbFd, FBIOGET_FSCREENINFO, &g_screeninfo_fix) < 0)
-	{
-		perror("FBIOGET_FSCREENINFO");
-		goto nolfb;
-	}
-
-	//my_printf("%dk video mem\n", g_screeninfo_fix.smem_len/1024);
-	g_lfb = (unsigned char*)mmap(0, g_screeninfo_fix.smem_len, PROT_WRITE|PROT_READ, MAP_SHARED, g_fbFd, 0);
-	if (!g_lfb)
-	{
-		perror("mmap");
-		goto nolfb;
-	}
-
-	if (g_screeninfo_var.bits_per_pixel != 32)
-	{
-		my_printf("Only 32 bit per pixel supported. Framebuffer currently use %d\n", g_screeninfo_var.bits_per_pixel);
-		close_framebuffer();
-		return 0;
 	}
 
 	enableManualBlit();
@@ -221,6 +215,51 @@ nolfb:
 	}
 	my_printf("framebuffer not available.\n");
 	return 0;
+}
+
+int mmap_fb()
+{
+	g_lfb = (unsigned char*)mmap(0, g_screeninfo_fix.smem_len, PROT_WRITE|PROT_READ, MAP_SHARED, g_fbFd, 0);
+	if (!g_lfb)
+	{
+		perror("mmap");
+		return 0;
+	}
+	return 1;
+}
+
+int set_fb_resolution()
+{
+	g_screeninfo_var.xres_virtual = g_screeninfo_var.xres = FB_WIDTH;
+	g_screeninfo_var.yres_virtual = g_screeninfo_var.yres = FB_HEIGHT;
+	g_screeninfo_var.bits_per_pixel = FB_BPP;
+	g_screeninfo_var.xoffset = g_screeninfo_var.yoffset = 0;
+	g_screeninfo_var.height = 0;
+	g_screeninfo_var.width = 0;
+
+	if (ioctl(g_fbFd, FBIOPUT_VSCREENINFO, &g_screeninfo_var) < 0)
+	{
+		my_printf("Error: Cannot set variable information");
+		return 0;
+	}
+
+	if (!get_screeninfo())
+	{
+		return 0;
+	}
+
+	if (g_screeninfo_var.xres != FB_WIDTH || g_screeninfo_var.yres != FB_HEIGHT)
+	{
+		my_printf("Warning: Cannot change resolution: using %dx%dx%d", g_screeninfo_var.xres, g_screeninfo_var.yres, g_screeninfo_var.bits_per_pixel);
+	}
+
+	if (g_screeninfo_var.bits_per_pixel != FB_BPP)
+	{
+		my_printf("Error: Only 32 bit per pixel supported. Framebuffer currently use %d\n", g_screeninfo_var.bits_per_pixel);
+		return 0;
+	}
+
+	return 1;
 }
 
 void set_step_progress(int percent)
@@ -526,6 +565,31 @@ int init_framebuffer(int steps, const char* version)
 		{
 			return 0;
 		}
+
+	if (!get_screeninfo())
+	{
+		my_printf("Error: Cannot get screen info\n");
+		close_framebuffer();
+		return 0;
+	}
+
+	if (   g_screeninfo_var.xres != FB_WIDTH
+		|| g_screeninfo_var.yres != FB_HEIGHT
+		|| g_screeninfo_var.bits_per_pixel != FB_BPP)
+	{
+		my_printf("Setting resolution 1280x720 32bit\n");
+		if (!set_fb_resolution())
+		{
+			close_framebuffer();
+			return 0;
+		}
+	}
+
+	if (!mmap_fb())
+	{
+		close_framebuffer();
+		return 0;
+	}
 
 	set_window_dimension();
 
