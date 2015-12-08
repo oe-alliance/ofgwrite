@@ -14,8 +14,7 @@
 #include <errno.h>
 #include <mtd/mtd-abi.h>
 
-
-const char ofgwrite_version[] = "2.3.4";
+const char ofgwrite_version[] = "2.9.0";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -37,7 +36,7 @@ struct stat kernel_file_stat;
 struct stat rootfs_file_stat;
 enum RootfsTypeEnum
 {
-	UNKNOWN, UBIFS, JFFS2
+	UNKNOWN, UBIFS, JFFS2, EXT4
 } rootfs_type;
 
 
@@ -567,20 +566,20 @@ int ubi_write(char* device, char* filename)
 	return 1;
 }
 
-int ubi_write_volume(char* ubivol_device, char* filename)
+int ubi_detach_dev(char* device)
 {
 	optind = 0; // reset getopt_long
 	char* argv[] = {
-		"ubiupdatevol",	// program name
-		ubivol_device,	// device
-		filename,		// file to flash
+		"ubidetach",	// program name
+		"-p",			// path to device
+		device,			// device
 		NULL
 	};
 	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
 
-	my_printf("Flashing rootfs: ubiupdatevol %s %s\n", ubivol_device, filename);
+	my_printf("Detach rootfs: ubidetach -p %s\n", device);
 	if (!no_write)
-		if (ubiupdatevol_main(argc, argv) != 0)
+		if (ubidetach_main(argc, argv) != 0)
 			return 0;
 
 	return 1;
@@ -704,6 +703,14 @@ void setRootfsType()
 			rootfs_type = JFFS2;
 			return;
 		}
+		else if (strstr (line, " / ") != NULL &&
+				 strstr (line, "/dev/root") != NULL &&
+				 strstr (line, "ext4") != NULL)
+		{
+			my_printf("Found EXT4\n");
+			rootfs_type = EXT4;
+			return;
+		}
 	}
 
 	my_printf("Found unknown rootfs\n");
@@ -750,6 +757,49 @@ int check_e2_stopped()
 	if (e2_found)
 		return 0;
 	return 1;
+}
+
+int daemonize()
+{
+	// Prevents that ofgwrite will be killed when init 1 is performed
+	my_printf("daemonize\n");
+
+	int ret;
+	pid_t pid = fork();
+	if (pid < 0)
+	{
+		my_printf("Error fork failed\n");
+		return 0;
+	}
+	else if (pid > 0)
+	{
+		// stop parent
+		exit(EXIT_SUCCESS);
+	}
+
+	if (setsid() < 0)
+	{
+		my_printf("Error setsid failed\n");
+		return 0;
+	}
+
+	pid = fork();
+	if (pid < 0)
+	{
+		my_printf("Error 2. fork failed\n");
+		return 0;
+	}
+	else if (pid > 0)
+	{
+		// stop child
+		exit(EXIT_SUCCESS);
+	}
+
+	umask(0);
+	// Close all open files. Without it umount rootfs won't work
+	int u;
+	for (u = sysconf(_SC_OPEN_MAX); u >= 0; u--)
+		close(u);
 }
 
 int main(int argc, char *argv[])
@@ -842,6 +892,8 @@ int main(int argc, char *argv[])
 	if (flash_rootfs)
 	{
 		ret = 0;
+
+		daemonize();
 
 		// Switch to user mode 2
 		my_printf("Switching to user mode 2\n");
