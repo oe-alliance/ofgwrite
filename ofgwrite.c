@@ -15,7 +15,7 @@
 #include <mtd/mtd-abi.h>
 
 
-const char ofgwrite_version[] = "2.3.0";
+const char ofgwrite_version[] = "2.3.1";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -878,6 +878,7 @@ int main(int argc, char *argv[])
 			ret = system("killall transmission-daemon");
 			ret = system("killall openvpn");
 			ret = system("/etc/init.d/sabnzbd stop");
+			ret = system("pkill -9 -f cihelper");
 			// kill VMC
 			ret = system("pkill -f vmc.sh");
 			ret = system("pkill -f DBServer.py");
