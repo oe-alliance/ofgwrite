@@ -15,7 +15,7 @@
 #include <errno.h>
 #include <mtd/mtd-abi.h>
 
-const char ofgwrite_version[] = "2.9.5";
+const char ofgwrite_version[] = "2.9.6";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -555,7 +555,6 @@ int ubi_write(char* device, char* filename)
 		device,			// device
 		"-f",			// flash file
 		filename,		// file to flash
-//		"-D",			// no detach check
 		NULL
 	};
 	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
@@ -646,35 +645,6 @@ int rootfs_flash(char* device, char* filename)
 		return 0;
 	}
 
-	return 1;
-}
-
-int setUbiDeviveName(int mtd_num, char* volume_name)
-{
-	libubi_t libubi;
-	struct ubi_vol_info vol_info;
-	int dev_num = -1;
-
-	libubi = libubi_open();
-	if (!libubi)
-		return 0;
-
-	if (mtd_num2ubi_dev(libubi, mtd_num, &dev_num))
-	{
-		libubi_close(libubi);
-		return 0;
-	}
-
-	if (ubi_get_vol_info1_nm(libubi, dev_num, volume_name, &vol_info))
-	{
-		libubi_close(libubi);
-		return 0;
-	}
-
-	sprintf(rootfs_ubi_device, "/dev/ubi%d_%d", dev_num, vol_info.vol_id);
-	my_printf("Rootfs: Ubi device number: %d, Volume id: %d, Device: %s\n", dev_num, vol_info.vol_id, rootfs_ubi_device);
-
-	libubi_close(libubi);
 	return 1;
 }
 
