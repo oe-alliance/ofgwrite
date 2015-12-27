@@ -2,7 +2,7 @@ SRC = flash_erase.c nandwrite.c ofgwrite.c ubiformat.c ubiutils-common.c libubig
 
 OBJ = $(SRC:.c=.o)
 
-OUT = ofgwrite
+OUT = ofgwrite_bin
 
 LDFLAGS= -Llib -lmtd -static
 

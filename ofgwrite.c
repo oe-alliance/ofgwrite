@@ -9,12 +9,13 @@
 #include <libubi.h>
 #include <syslog.h>
 #include <sys/stat.h>
+#include <sys/mount.h>
 #include <unistd.h>
 #include <libmtd.h>
 #include <errno.h>
 #include <mtd/mtd-abi.h>
 
-const char ofgwrite_version[] = "2.9.0";
+const char ofgwrite_version[] = "2.9.5";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -24,6 +25,7 @@ int found_mtd_kernel;
 int found_mtd_rootfs;
 int user_mtd_kernel = 0;
 int user_mtd_rootfs = 0;
+int newroot_mounted = 0;
 char kernel_filename[1000];
 char kernel_mtd_device[1000];
 char kernel_mtd_device_arg[1000];
@@ -553,7 +555,7 @@ int ubi_write(char* device, char* filename)
 		device,			// device
 		"-f",			// flash file
 		filename,		// file to flash
-		"-D",			// no detach check
+//		"-D",			// no detach check
 		NULL
 	};
 	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
@@ -619,6 +621,8 @@ int rootfs_flash(char* device, char* filename)
 	if ((type == MTD_NANDFLASH || type == MTD_MLCNANDFLASH) && rootfs_type == UBIFS)
 	{
 		my_printf("Found NAND flash\n");
+		if (!ubi_detach_dev(device))
+			return 0;
 		if (!ubi_write(device, filename))
 			return 0;
 	}
@@ -674,34 +678,36 @@ int setUbiDeviveName(int mtd_num, char* volume_name)
 	return 1;
 }
 
-void setRootfsType()
+// read root filesystem and checks whether /newroot is mounted as tmpfs
+void readMounts()
 {
 	FILE* f;
+
+	rootfs_type = UNKNOWN;
 
 	f = fopen("/proc/mounts", "r");
 	if (f == NULL)
 	{ 
 		perror("Error while opening /proc/mounts");
-		rootfs_type = UNKNOWN;
 		return;
 	}
 
 	char line [1000];
 	while (fgets(line, 1000, f) != NULL)
 	{
-		if (strstr (line, "rootfs") != NULL &&
+		if (strstr (line, " / ") != NULL &&
+			strstr (line, "rootfs") != NULL &&
 			strstr (line, "ubifs") != NULL)
 		{
 			my_printf("Found UBIFS\n");
 			rootfs_type = UBIFS;
-			return;
 		}
-		else if (strstr (line, "root") != NULL &&
+		else if (strstr (line, " / ") != NULL &&
+				 strstr (line, "root") != NULL &&
 				 strstr (line, "jffs2") != NULL)
 		{
 			my_printf("Found JFFS2\n");
 			rootfs_type = JFFS2;
-			return;
 		}
 		else if (strstr (line, " / ") != NULL &&
 				 strstr (line, "/dev/root") != NULL &&
@@ -709,12 +715,17 @@ void setRootfsType()
 		{
 			my_printf("Found EXT4\n");
 			rootfs_type = EXT4;
-			return;
+		}
+		else if (strstr (line, "/newroot") != NULL &&
+				 strstr (line, "tmpfs") != NULL)
+		{
+			my_printf("Found mounted /newroot\n");
+			newroot_mounted = 1;
 		}
 	}
 
-	my_printf("Found unknown rootfs\n");
-	rootfs_type = UNKNOWN;
+	if (rootfs_type == UNKNOWN)
+		my_printf("Found unknown rootfs\n");
 }
 
 int check_e2_stopped()
@@ -756,13 +767,14 @@ int check_e2_stopped()
 	}
 	if (e2_found)
 		return 0;
+
 	return 1;
 }
 
 int daemonize()
 {
 	// Prevents that ofgwrite will be killed when init 1 is performed
-	my_printf("daemonize\n");
+	my_printf("daemonize");
 
 	int ret;
 	pid_t pid = fork();
@@ -800,6 +812,122 @@ int daemonize()
 	int u;
 	for (u = sysconf(_SC_OPEN_MAX); u >= 0; u--)
 		close(u);
+	my_printf(" successful\n");
+	return 1;
+}
+
+int umount_rootfs()
+{
+	int ret = 0;
+	my_printf("start umount_rootfs\n");
+	// the start script creates /newroot dir and mount tmpfs on it
+	// create directories
+	ret += chdir("/newroot");
+	ret += mkdir("/newroot/bin", 777);
+	ret += mkdir("/newroot/dev", 777);
+	ret += mkdir("/newroot/dev/pts", 777);
+	ret += mkdir("/newroot/lib", 777);
+	ret += mkdir("/newroot/media", 777);
+	ret += mkdir("/newroot/oldroot", 777);
+	ret += mkdir("/newroot/proc", 777);
+	ret += mkdir("/newroot/sbin", 777);
+	ret += mkdir("/newroot/sys", 777);
+	ret += mkdir("/newroot/var", 777);
+	ret += mkdir("/newroot/var/volatile", 777);
+	if (ret != 0)
+	{
+		my_printf("Error creating necessary directories");
+		return 0;
+	}
+
+	// we need init and libs to be able to exec init u later
+	ret =  system("cp -ar /bin/* /newroot/bin");
+	ret += system("cp -ar /lib/* /newroot/lib");
+	ret += system("cp -ar /sbin/* /newroot/sbin");
+	if (ret != 0)
+	{
+		my_printf("Error copying binary and libs");
+		return 0;
+	}
+
+	// Switch to user mode 1
+	my_printf("Switching to user mode 1\n");
+	ret = system("init 1");
+	if (ret)
+	{
+		my_printf("Error switching runmode!\n");
+		set_error_text("Error switching runmode! Abort flashing.");
+		sleep(5);
+		return 0;
+	}
+
+	// it can take several seconds until E2 is shut down
+	// wait because otherwise remounting read only is not possible
+	set_step("Wait until E2 is stopped");
+	if (!check_e2_stopped())
+	{
+		my_printf("Error E2 can't be stopped! Abort flashing.\n");
+		set_error_text("Error E2 can't be stopped! Abort flashing.");
+		system("init 3");
+		return 0;
+	}
+	sleep(2);
+
+	ret = pivot_root("/newroot/", "oldroot");
+	if (ret)
+	{
+		my_printf("Error executing pivot_root!\n");
+		set_error_text("Error pivot_root! Abort flashing.");
+		sleep(5);
+		system("init 3");
+		return 0;
+	}
+
+	chdir("/");
+	// move mounts to new root
+	ret =  mount("/oldroot/dev/", "dev/", NULL, MS_MOVE, NULL);
+	ret += mount("/oldroot/media/", "media/", NULL, MS_MOVE, NULL);
+	ret += mount("/oldroot/proc/", "proc/", NULL, MS_MOVE, NULL);
+	ret += mount("/oldroot/sys/", "sys/", NULL, MS_MOVE, NULL);
+	ret += mount("/oldroot/var/volatile", "var/volatile/", NULL, MS_MOVE, NULL);
+	if (ret != 0)
+	{
+		my_printf("Error move mounts to newroot\n");
+		set_error_text1("Error move mounts to newroot. Abort flashing!");
+		set_error_text2("Rebooting in 30 seconds!");
+		sleep(30);
+		reboot(LINUX_REBOOT_CMD_RESTART);
+		return 0;
+	}
+
+	// restart init process
+	ret = system("exec init u");
+
+	sleep(1);
+
+	if (umount("/oldroot/") != 0)
+	{
+		my_printf("umount rootfs failed");
+		set_error_text1("Error umount rootfs. Abort flashing!");
+		set_error_text2("Rebooting in 30 seconds!");
+		sleep(30);
+		reboot(LINUX_REBOOT_CMD_RESTART);
+		return 0;
+	}
+
+	my_printf("umount rootfs successful!");
+	return 1;
+}
+
+int check_env()
+{
+	if (!newroot_mounted)
+	{
+		my_printf("Please use ofgwrite command to start flashing!\n");
+		return 0;
+	}
+
+	return 1;
 }
 
 int main(int argc, char *argv[])
@@ -832,7 +960,8 @@ int main(int argc, char *argv[])
 
 	my_printf("\n");
 
-	setRootfsType();
+	// set rootfs type and more
+	readMounts();
 
 	my_printf("\n");
 
@@ -893,18 +1022,11 @@ int main(int argc, char *argv[])
 	{
 		ret = 0;
 
-		daemonize();
-
-		// Switch to user mode 2
-		my_printf("Switching to user mode 2\n");
-		if (!no_write)
+		// Check whether /newroot exists and is mounted as tmpfs
+		if (!check_env())
 		{
-			ret = system("init 2");
-			if (ret)
-			{
-				my_printf("Error switching mode!\n");
-				return EXIT_FAILURE;
-			}
+			closelog();
+			return EXIT_FAILURE;
 		}
 
 		int steps = 6;
@@ -941,26 +1063,6 @@ int main(int argc, char *argv[])
 			// ignore return values, because the processes might not run
 		}
 
-		// it can take several seconds until E2 is shut down
-		// wait because otherwise remounting read only is not possible
-		set_step("Wait until E2 is stopped");
-		if (!no_write)
-		{
-			if (!check_e2_stopped())
-			{
-				my_printf("Error E2 can't be stopped! Abort flashing.\n");
-				set_error_text("Error E2 can't be stopped! Abort flashing.");
-				system("init 3");
-				closelog();
-				close_framebuffer();
-				return EXIT_FAILURE;
-			}
-		}
-		// Remove rest of E2 osd
-		clearOSD();
-		// reload background image because if E2 was running when init_framebuffer was executed the image is not visible
-		loadBackgroundImage();
-
 		// sync filesystem
 		my_printf("Syncing filesystem\n");
 		set_step("Syncing filesystem");
@@ -977,27 +1079,27 @@ int main(int argc, char *argv[])
 
 		sleep(1);
 
-		// Remount root read-only
-		my_printf("Remounting rootfs read-only\n");
-		set_step("Remounting rootfs read-only");
+		set_step("umount rootfs");
 		if (!no_write)
 		{
-			ret = system("mount -r -o remount /");
-			if (ret)
+			if (!daemonize())
 			{
-				my_printf("Error remounting root! Abort flashing. Try to restart E2 in 30 seconds\n");
-				set_error_text1("Error remounting root! Abort flashing.");
-				set_error_text2("Try to restart E2 in 30 seconds");
-				sleep(30);
-				system("init 3");
+				closelog();
+				close_framebuffer();
+				return EXIT_FAILURE;
+			}
+			if (!umount_rootfs())
+			{
 				closelog();
 				close_framebuffer();
 				return EXIT_FAILURE;
 			}
 		}
 
-		// sync again (most likely unnecessary)
-		ret = system("sync");
+		// Remove rest of E2 osd
+		clearOSD();
+		// reload background image because if E2 was running when init_framebuffer was executed the image is not visible
+		loadBackgroundImage();
 
 		//Flash kernel
 		if (flash_kernel)
