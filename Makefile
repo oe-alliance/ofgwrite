@@ -1,4 +1,4 @@
-SRC = flash_erase.c nandwrite.c ofgwrite.c ubiformat.c ubiutils-common.c libubigen.c libscan.c libubi.c flashcp.c ubidetach.c ubiupdatevol.c fb.c
+SRC = flash_erase.c nandwrite.c ofgwrite.c ubiformat.c ubiutils-common.c libubigen.c libscan.c libubi.c flashcp.c ubidetach.c ubiupdatevol.c fb.c flash_ubi_jffs2.c
 
 OBJ = $(SRC:.c=.o)
 

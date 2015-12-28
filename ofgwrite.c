@@ -1,28 +1,25 @@
+#include "ofgwrite.h"
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
 #include <stdlib.h>
-#include <fcntl.h>
 #include <dirent.h>
 #include <getopt.h>
 #include <linux/reboot.h>
-#include <libubi.h>
 #include <syslog.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
 #include <unistd.h>
-#include <libmtd.h>
-#include <errno.h>
-#include <mtd/mtd-abi.h>
 
-const char ofgwrite_version[] = "2.9.6";
+const char ofgwrite_version[] = "2.9.7";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
 int quiet        = 0;
 int show_help    = 0;
-int found_mtd_kernel;
-int found_mtd_rootfs;
+int found_kernel_device = 0;
+int found_rootfs_device = 0;
 int user_mtd_kernel = 0;
 int user_mtd_rootfs = 0;
 int newroot_mounted = 0;
@@ -33,13 +30,9 @@ char rootfs_filename[1000];
 char rootfs_mtd_device[1000];
 char rootfs_mtd_device_arg[1000];
 char rootfs_ubi_device[1000];
-int rootfs_mtd_num = -1;
 struct stat kernel_file_stat;
 struct stat rootfs_file_stat;
-enum RootfsTypeEnum
-{
-	UNKNOWN, UBIFS, JFFS2, EXT4
-} rootfs_type;
+enum RootfsTypeEnum rootfs_type;
 
 
 void my_printf(char const *fmt, ...)
@@ -297,7 +290,7 @@ int read_mtd_file()
 							my_printf("  ->  %s <- User selected!!\n", kernel_filename);
 						else
 							my_printf("  <-  User selected!!\n");
-						found_mtd_kernel = 1;
+						found_kernel_device = 1;
 					}
 					else
 					{
@@ -326,7 +319,7 @@ int read_mtd_file()
 							my_printf("  ->  %s <- User selected!!\n", rootfs_filename);
 						else
 							my_printf("  <-  User selected!!\n");
-						found_mtd_rootfs = 1;
+						found_rootfs_device = 1;
 					}
 					else
 					{
@@ -350,7 +343,7 @@ int read_mtd_file()
 					&& (strcmp(name, "\"kernel\"") == 0
 						|| strcmp(name, "\"nkernel\"") == 0))
 			{
-				if (found_mtd_kernel)
+				if (found_kernel_device)
 				{
 					my_printf("\n");
 					continue;
@@ -363,7 +356,7 @@ int read_mtd_file()
 						my_printf("  ->  %s\n", kernel_filename);
 					else
 						my_printf("\n");
-					found_mtd_kernel = 1;
+					found_kernel_device = 1;
 				}
 				else
 					my_printf("  <-  Error: Kernel file is bigger than device size!!\n");
@@ -371,7 +364,7 @@ int read_mtd_file()
 			// auto rootfs
 			else if (!user_mtd_rootfs && strcmp(name, "\"rootfs\"") == 0)
 			{
-				if (found_mtd_rootfs)
+				if (found_rootfs_device)
 				{
 					my_printf("\n");
 					continue;
@@ -383,12 +376,11 @@ int read_mtd_file()
 				if (rootfs_file_stat.st_size <= devsize
 					&& strcmp(esize, "0001f000") != 0)
 				{
-					rootfs_mtd_num = atoi(&dev[strlen(dev)-1]);
 					if (rootfs_filename[0] != '\0')
 						my_printf("  ->  %s\n", rootfs_filename);
 					else
 						my_printf("\n");
-					found_mtd_rootfs = 1;
+					found_rootfs_device = 1;
 				}
 				else if (strcmp(esize, "0001f000") == 0)
 					my_printf("  <-  Error: Invalid erasesize\n");
@@ -414,238 +406,20 @@ int read_mtd_file()
 	return 1;
 }
 
-int getFlashType(char* device)
-{
-	libmtd_t libmtd = libmtd_open();
-	if (libmtd == NULL)
-	{
-		if (errno == 0)
-			my_printf("MTD is not present in the system");
-		my_printf("cannot open libmtd %s", strerror(errno));
-		return -1;
-	}
-
-	struct mtd_dev_info mtd;
-	int err = mtd_get_dev_info(libmtd, device, &mtd);
-	if (err)
-	{
-		my_fprintf(stderr, "cannot get information about \"%s\"\n", device);
-		return -1;
-	}
-
-	libmtd_close(libmtd);
-
-	return mtd.type;
-}
-
-int flash_erase(char* device, char* context)
-{
-	optind = 0; // reset getopt_long
-	char* argv[] = {
-		"flash_erase",	// program name
-		device,			// device
-		"0",			// start offset
-		"0",			// block count
-		NULL
-	};
-	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
-
-	if (!quiet)
-		my_printf("Erasing %s: flash_erase %s 0 0\n", context, device);
-	if (!no_write)
-		if (flash_erase_main(argc, argv) != 0)
-			return 0;
-
-	return 1;
-}
-
-int flash_erase_jffs2(char* device, char* context)
-{
-	optind = 0; // reset getopt_long
-	char* argv[] = {
-		"flash_erase",	// program name
-		"-j",			// format the device for jffs2
-		device,			// device
-		"0",			// start offset
-		"0",			// block count
-		NULL
-	};
-	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
-
-	if (!quiet)
-		my_printf("Erasing %s: flash_erase -j %s 0 0\n", context, device);
-	if (!no_write)
-		if (flash_erase_main(argc, argv) != 0)
-			return 0;
-
-	return 1;
-}
-
-int flash_write(char* device, char* filename)
-{
-	optind = 0; // reset getopt_long
-	char opts[4];
-	strcpy(opts, "-pm");
-	char* argv[] = {
-		"nandwrite",	// program name
-		opts,			// options -p for pad and -m for mark bad blocks
-		device,			// device
-		filename,		// file to flash
-		NULL
-	};
-	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
-
-	if (!quiet)
-		my_printf("Flashing kernel: nandwrite %s %s %s\n", opts, device, filename);
-	if (!no_write)
-		if (nandwrite_main(argc, argv) != 0)
-			return 0;
-
-	return 1;
-}
-
 int kernel_flash(char* device, char* filename)
 {
-	int type = getFlashType(device);
-	if (type == -1)
-		return 0;
-
-	if (type == MTD_NANDFLASH || type == MTD_MLCNANDFLASH)
-	{
-		my_printf("Found NAND flash\n");
-		// Erase
-		set_step("Erasing kernel");
-		if (!flash_erase(kernel_mtd_device, "kernel"))
-		{
-			my_printf("Error erasing kernel! System might not boot. If you have problems please flash backup!\n");
-			return 0;
-		}
-
-		// Flash
-		set_step("Writing kernel");
-		if (!flash_write(kernel_mtd_device, kernel_filename))
-		{
-			my_printf("Error flashing kernel! System won't boot. Please flash backup!\n");
-			return 0;
-		}
-	}
-	else if (type == MTD_NORFLASH)
-	{
-		my_printf("Found NOR flash\n");
-		if (!flashcp(kernel_mtd_device, kernel_filename, 0))
-		{
-			my_printf("Error flashing kernel! System won't boot. Please flash backup!\n");
-			return 0;
-		}
-	}
-	else
-	{
-		my_fprintf(stderr, "Flash type \"%d\" not supported\n", type);
-		return 0;
-	}
-
-	return 1;
-}
-
-int ubi_write(char* device, char* filename)
-{
-	optind = 0; // reset getopt_long
-	char* argv[] = {
-		"ubiformat",	// program name
-		device,			// device
-		"-f",			// flash file
-		filename,		// file to flash
-		NULL
-	};
-	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
-
-	my_printf("Flashing rootfs: ubiformat %s -f %s\n", device, filename);
-	if (!no_write)
-		if (ubiformat_main(argc, argv) != 0)
-			return 0;
-
-	return 1;
-}
-
-int ubi_detach_dev(char* device)
-{
-	optind = 0; // reset getopt_long
-	char* argv[] = {
-		"ubidetach",	// program name
-		"-p",			// path to device
-		device,			// device
-		NULL
-	};
-	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
-
-	my_printf("Detach rootfs: ubidetach -p %s\n", device);
-	if (!no_write)
-		if (ubidetach_main(argc, argv) != 0)
-			return 0;
-
-	return 1;
-}
-
-int flashcp(char* device, char* filename, int reboot)
-{
-	optind = 0; // reset getopt_long
-	char opts[4];
-	if (reboot)
-		strcpy(opts, "-vr\0");
-	else
-		strcpy(opts, "-v\0");
-	char* argv[] = {
-		"flashcp",		// program name
-		opts,			// options -v verbose -r reboot immediately after flashing
-		filename,		// file to flash
-		device,			// device
-		NULL
-	};
-	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
-
-	my_printf("Flashing rootfs: flashcp %s %s %s\n", opts, filename, device);
-	if (!no_write)
-		if (flashcp_main(argc, argv) != 0)
-			return 0;
-
-	return 1;
+	//if (rootfs_type == EXT4)
+	//	return flash_ext4_kernel(device, filename);
+	//else
+		return flash_ubi_jffs2_kernel(device, filename, quiet, no_write);
 }
 
 int rootfs_flash(char* device, char* filename)
 {
-	int type = getFlashType(device);
-	if (type == -1)
-		return 0;
-
-	if ((type == MTD_NANDFLASH || type == MTD_MLCNANDFLASH) && rootfs_type == UBIFS)
-	{
-		my_printf("Found NAND flash\n");
-		if (!ubi_detach_dev(device))
-			return 0;
-		if (!ubi_write(device, filename))
-			return 0;
-	}
-	else if ((type == MTD_NANDFLASH || type == MTD_MLCNANDFLASH) && rootfs_type == JFFS2)
-	{
-		my_printf("Found NAND flash\n");
-		if (!flash_erase_jffs2(device, "rootfs"))
-			return 0;
-		if (!flash_write(device, filename))
-			return 0;
-	}
-	else if (type == MTD_NORFLASH && rootfs_type == JFFS2)
-	{
-		my_printf("Found NOR flash\n");
-		if (!flashcp(device, filename, 1))
-			return 0;
-	}
-	else
-	{
-		my_fprintf(stderr, "Flash type \"%d\" in combination with rootfs type %d is not supported\n", type, rootfs_type);
-		return 0;
-	}
-
-	return 1;
+	//if (rootfs_type == EXT4)
+	//	return flash_ext4_kernel(device, filename);
+	//else
+		return flash_ubi_jffs2_rootfs(device, filename, rootfs_type, quiet, no_write);
 }
 
 // read root filesystem and checks whether /newroot is mounted as tmpfs
@@ -841,7 +615,7 @@ int umount_rootfs()
 		system("init 3");
 		return 0;
 	}
-	sleep(2);
+	sleep(3);
 
 	ret = pivot_root("/newroot/", "oldroot");
 	if (ret)
@@ -921,34 +695,32 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	found_mtd_kernel = 0;
-	found_mtd_rootfs = 0;
-
-	my_printf("\n");
-	if (!read_mtd_file())
-		return EXIT_FAILURE;
-
-	my_printf("\n");
-
 	// set rootfs type and more
 	readMounts();
 
+	if (rootfs_type == UBIFS || rootfs_type == JFFS2)
+	{
+		my_printf("\n");
+		if (!read_mtd_file())
+			return EXIT_FAILURE;
+	}
+
 	my_printf("\n");
 
-	if (flash_kernel && (!found_mtd_kernel || kernel_filename[0] == '\0'))
+	if (flash_kernel && (!found_kernel_device || kernel_filename[0] == '\0'))
 	{
 		my_printf("Error: Cannot flash kernel");
-		if (!found_mtd_kernel)
+		if (!found_kernel_device)
 			my_printf(", because no kernel MTD entry was found\n");
 		else
 			my_printf(", because no kernel file was found\n");
 		return EXIT_FAILURE;
 	}
 
-	if (flash_rootfs && (!found_mtd_rootfs || rootfs_filename[0] == '\0' || rootfs_type == UNKNOWN))
+	if (flash_rootfs && (!found_rootfs_device || rootfs_filename[0] == '\0' || rootfs_type == UNKNOWN))
 	{
 		my_printf("Error: Cannot flash rootfs");
-		if (!found_mtd_rootfs)
+		if (!found_rootfs_device)
 			my_printf(", because no rootfs MTD entry was found\n");
 		else if (rootfs_filename[0] == '\0')
 			my_printf(", because no rootfs file was found\n");
