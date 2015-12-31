@@ -12,7 +12,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "2.9.7";
+const char ofgwrite_version[] = "2.9.8";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -24,10 +24,10 @@ int user_mtd_kernel = 0;
 int user_mtd_rootfs = 0;
 int newroot_mounted = 0;
 char kernel_filename[1000];
-char kernel_mtd_device[1000];
+char kernel_device[1000];
 char kernel_mtd_device_arg[1000];
 char rootfs_filename[1000];
-char rootfs_mtd_device[1000];
+char rootfs_device[1000];
 char rootfs_mtd_device_arg[1000];
 char rootfs_ubi_device[1000];
 struct stat kernel_file_stat;
@@ -265,6 +265,7 @@ int read_mtd_file()
 			 || strcmp(name , "name") != 0)
 			{
 				my_printf("Error: /proc/mtd has an invalid format\n");
+				fclose(f);
 				return 0;
 			}
 		}
@@ -278,8 +279,8 @@ int read_mtd_file()
 			// user selected kernel
 			if (user_mtd_kernel && !strcmp(dev, kernel_mtd_device_arg))
 			{
-				strcpy(&kernel_mtd_device[0], dev_path);
-				strcpy(&kernel_mtd_device[5], kernel_mtd_device_arg);
+				strcpy(&kernel_device[0], dev_path);
+				strcpy(&kernel_device[5], kernel_mtd_device_arg);
 				if (kernel_file_stat.st_size <= devsize)
 				{
 					if ((strcmp(name, "\"kernel\"") == 0
@@ -307,8 +308,8 @@ int read_mtd_file()
 			// user selected rootfs
 			else if (user_mtd_rootfs && !strcmp(dev, rootfs_mtd_device_arg))
 			{
-				strcpy(&rootfs_mtd_device[0], dev_path);
-				strcpy(&rootfs_mtd_device[5], rootfs_mtd_device_arg);
+				strcpy(&rootfs_device[0], dev_path);
+				strcpy(&rootfs_device[5], rootfs_mtd_device_arg);
 				if (rootfs_file_stat.st_size <= devsize
 					&& strcmp(esize, "0001f000") != 0)
 				{
@@ -348,8 +349,8 @@ int read_mtd_file()
 					my_printf("\n");
 					continue;
 				}
-				strcpy(&kernel_mtd_device[0], dev_path);
-				strcpy(&kernel_mtd_device[5], dev);
+				strcpy(&kernel_device[0], dev_path);
+				strcpy(&kernel_device[5], dev);
 				if (kernel_file_stat.st_size <= devsize)
 				{
 					if (kernel_filename[0] != '\0')
@@ -369,8 +370,8 @@ int read_mtd_file()
 					my_printf("\n");
 					continue;
 				}
-				strcpy(&rootfs_mtd_device[0], dev_path);
-				strcpy(&rootfs_mtd_device[5], dev);
+				strcpy(&rootfs_device[0], dev_path);
+				strcpy(&rootfs_device[5], dev);
 				unsigned long devsize;
 				devsize = strtoul(size, 0, 16);
 				if (rootfs_file_stat.st_size <= devsize
@@ -392,8 +393,8 @@ int read_mtd_file()
 		}
 	}
 
-	my_printf("Using kernel mtd device: %s\n", kernel_mtd_device);
-	my_printf("Using rootfs mtd device: %s\n", rootfs_mtd_device);
+	my_printf("Using kernel mtd device: %s\n", kernel_device);
+	my_printf("Using rootfs mtd device: %s\n", rootfs_device);
 
 	fclose(f);
 
@@ -408,17 +409,17 @@ int read_mtd_file()
 
 int kernel_flash(char* device, char* filename)
 {
-	//if (rootfs_type == EXT4)
-	//	return flash_ext4_kernel(device, filename);
-	//else
+	if (rootfs_type == EXT4)
+		return flash_ext4_kernel(device, filename, quiet, no_write);
+	else
 		return flash_ubi_jffs2_kernel(device, filename, quiet, no_write);
 }
 
 int rootfs_flash(char* device, char* filename)
 {
-	//if (rootfs_type == EXT4)
-	//	return flash_ext4_kernel(device, filename);
-	//else
+	if (rootfs_type == EXT4)
+		return flash_ext4_rootfs(device, filename);
+	else
 		return flash_ubi_jffs2_rootfs(device, filename, rootfs_type, quiet, no_write);
 }
 
@@ -443,21 +444,22 @@ void readMounts()
 			strstr (line, "rootfs") != NULL &&
 			strstr (line, "ubifs") != NULL)
 		{
-			my_printf("Found UBIFS\n");
+			my_printf("Found UBIFS rootfs\n");
 			rootfs_type = UBIFS;
 		}
 		else if (strstr (line, " / ") != NULL &&
 				 strstr (line, "root") != NULL &&
 				 strstr (line, "jffs2") != NULL)
 		{
-			my_printf("Found JFFS2\n");
+			my_printf("Found JFFS2 rootfs\n");
 			rootfs_type = JFFS2;
 		}
 		else if (strstr (line, " / ") != NULL &&
-				 strstr (line, "/dev/root") != NULL &&
 				 strstr (line, "ext4") != NULL)
 		{
-			my_printf("Found EXT4\n");
+			char* pos = strstr(line, " / ");
+			strncpy(rootfs_device, line, pos-line);
+			my_printf("Found EXT4 rootfs. Dev %s\n", kernel_device);
 			rootfs_type = EXT4;
 		}
 		else if (strstr (line, "/newroot") != NULL &&
@@ -467,6 +469,8 @@ void readMounts()
 			newroot_mounted = 1;
 		}
 	}
+
+	fclose(f);
 
 	if (rootfs_type == UNKNOWN)
 		my_printf("Found unknown rootfs\n");
@@ -676,6 +680,12 @@ int check_env()
 
 int main(int argc, char *argv[])
 {
+	// Check if running on a box or on a PC. Stop working on PC to prevent overwriting important files
+#if defined(__i386) || defined(__x86_64__)
+	my_printf("You're running ofgwrite on a PC. Aborting...\n");
+	exit(EXIT_FAILURE);
+#endif
+
 	// Open log
 	openlog("ofgwrite", LOG_CONS | LOG_NDELAY, LOG_USER);
 
@@ -703,6 +713,11 @@ int main(int argc, char *argv[])
 		my_printf("\n");
 		if (!read_mtd_file())
 			return EXIT_FAILURE;
+	}
+	else if (rootfs_type == EXT4)
+	{
+		//if (!check_device_size())
+		//	return EXIT_FAILURE;
 	}
 
 	my_printf("\n");
@@ -737,7 +752,7 @@ int main(int argc, char *argv[])
 		init_framebuffer(2, ofgwrite_version);
 		set_overall_text("Flashing kernel");
 
-		if (!kernel_flash(kernel_mtd_device, kernel_filename))
+		if (!kernel_flash(kernel_device, kernel_filename))
 			ret = EXIT_FAILURE;
 		else
 			ret = EXIT_SUCCESS;
@@ -849,7 +864,7 @@ int main(int argc, char *argv[])
 			if (!quiet)
 				my_printf("Flashing kernel ...\n");
 
-			if (!kernel_flash(kernel_mtd_device, kernel_filename))
+			if (!kernel_flash(kernel_device, kernel_filename))
 			{
 				my_printf("Error flashing kernel. System won't boot. Please flash backup! Starting E2 in 60 seconds\n");
 				set_error_text1("Error flashing kernel. System won't boot!");
@@ -864,7 +879,7 @@ int main(int argc, char *argv[])
 		}
 
 		// Flash rootfs
-		if (!rootfs_flash(rootfs_mtd_device, rootfs_filename))
+		if (!rootfs_flash(rootfs_device, rootfs_filename))
 		{
 			my_printf("Error flashing rootfs! System won't boot. Please flash backup! System will reboot in 60 seconds\n");
 			set_error_text1("Error flashing rootfs. System won't boot!");
