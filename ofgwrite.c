@@ -619,7 +619,7 @@ int umount_rootfs()
 	{
 		my_printf("Error E2 can't be stopped! Abort flashing.\n");
 		set_error_text("Error E2 can't be stopped! Abort flashing.");
-		system("init 3");
+		ret = system("init 3");
 		return 0;
 	}
 	sleep(3);
@@ -630,11 +630,11 @@ int umount_rootfs()
 		my_printf("Error executing pivot_root!\n");
 		set_error_text("Error pivot_root! Abort flashing.");
 		sleep(5);
-		system("init 3");
+		ret = system("init 3");
 		return 0;
 	}
 
-	chdir("/");
+	ret = chdir("/");
 	// move mounts to new root
 	ret =  mount("/oldroot/dev/", "dev/", NULL, MS_MOVE, NULL);
 	ret += mount("/oldroot/media/", "media/", NULL, MS_MOVE, NULL);
@@ -934,7 +934,7 @@ int main(int argc, char *argv[])
 				set_error_text1("Error flashing kernel. System won't boot!");
 				set_error_text2("Please flash backup! Starting E2 in 60 sec");
 				sleep(60);
-				system("init 3");
+				ret = system("init 3");
 				closelog();
 				close_framebuffer();
 				return EXIT_FAILURE;
