@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <dirent.h>
 #include <getopt.h>
+#include <fcntl.h>
 #include <linux/reboot.h>
 #include <syslog.h>
 #include <sys/stat.h>
@@ -410,7 +411,7 @@ int read_mtd_file()
 int kernel_flash(char* device, char* filename)
 {
 	if (rootfs_type == EXT4)
-		return flash_ext4_kernel(device, filename, quiet, no_write);
+		return flash_ext4_kernel(device, filename, kernel_file_stat.st_size, quiet, no_write);
 	else
 		return flash_ubi_jffs2_kernel(device, filename, quiet, no_write);
 }
@@ -459,7 +460,9 @@ void readMounts()
 		{
 			char* pos = strstr(line, " / ");
 			strncpy(rootfs_device, line, pos-line);
-			my_printf("Found EXT4 rootfs. Dev %s\n", kernel_device);
+			if (rootfs_device[0] != '\0')
+				found_rootfs_device = 1;
+			my_printf("Found EXT4 rootfs. Device %s\n", rootfs_device);
 			rootfs_type = EXT4;
 		}
 		else if (strstr (line, "/newroot") != NULL &&
@@ -678,6 +681,64 @@ int check_env()
 	return 1;
 }
 
+int find_kernel_device()
+{
+	strcpy(kernel_device, "/dev/mmcblk0p1");
+	found_kernel_device = 1;
+	my_printf("Using %s as kernel device\n", kernel_device);
+	return 1;
+}
+
+// Checks whether kernel and rootfs device is bigger than the kernel and rootfs file
+int check_device_size()
+{
+	unsigned long long devsize = 0;
+	int fd = 0;
+	// check kernel
+	if (found_kernel_device)
+	{
+		fd = open(kernel_device, O_RDONLY);
+		if (fd <= 0)
+		{
+			my_printf("Unable to open kernel device %s. Aborting\n", kernel_device);
+			return 0;
+		}
+		if (ioctl(fd, BLKGETSIZE64, &devsize))
+		{
+			my_printf("Couldn't determine kernel device size. Aborting\n");
+			return 0;
+		}
+		if (kernel_file_stat.st_size > devsize)
+		{
+			my_printf("Kernel file is bigger than kernel device. Aborting\n");
+			return 0;
+		}
+	}
+
+	// check rootfs
+	if (found_rootfs_device)
+	{
+		fd = open(rootfs_device, O_RDONLY);
+		if (fd <= 0)
+		{
+			my_printf("Unable to open rootfs device %s. Aborting\n", rootfs_device);
+			return 0;
+		}
+		if (ioctl(fd, BLKGETSIZE64, &devsize))
+		{
+			my_printf("Couldn't determine rootfs device size. Aborting\n");
+			return 0;
+		}
+		if (rootfs_file_stat.st_size > devsize)
+		{
+			my_printf("Rootfs file is bigger than rootfs device. Aborting\n");
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
 int main(int argc, char *argv[])
 {
 	// Check if running on a box or on a PC. Stop working on PC to prevent overwriting important files
@@ -716,8 +777,11 @@ int main(int argc, char *argv[])
 	}
 	else if (rootfs_type == EXT4)
 	{
-		//if (!check_device_size())
-		//	return EXIT_FAILURE;
+		my_printf("\n");
+		if (flash_kernel && !find_kernel_device())
+			return EXIT_FAILURE;
+		if (!check_device_size())
+			return EXIT_FAILURE;
 	}
 
 	my_printf("\n");

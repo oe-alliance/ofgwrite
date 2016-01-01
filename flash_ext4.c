@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-int flash_ext4_kernel(char* device, char* filename, int quiet, int no_write)
+int flash_ext4_kernel(char* device, char* filename, off_t kernel_file_size, int quiet, int no_write)
 {
 	char buffer[512];
 
@@ -22,7 +22,11 @@ int flash_ext4_kernel(char* device, char* filename, int quiet, int no_write)
 		return 0;
 	}
 
+	set_step("Writing ext4 kernel");
 	int ret;
+	long long readBytes = 0;
+	int current_percent = 0;
+	int new_percent     = 0;
 	while (!feof(kernel_file))
 	{
 		ret = fread(buffer, 1, sizeof(buffer), kernel_file);
@@ -32,6 +36,15 @@ int flash_ext4_kernel(char* device, char* filename, int quiet, int no_write)
 			fclose(kernel_file);
 			fclose(kernel_dev);
 			return 0;
+		}
+		readBytes += ret;
+		new_percent = readBytes * 100/ kernel_file_size;
+		if (current_percent < new_percent)
+		{
+			if (!quiet)
+				my_printf("Writing ext4 kernel: Percent %d\n", new_percent);
+			set_step_progress(new_percent);
+			current_percent = new_percent;
 		}
 		if (!no_write)
 		{
