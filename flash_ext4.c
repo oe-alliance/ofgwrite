@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <getopt.h>
 
 int flash_ext4_kernel(char* device, char* filename, off_t kernel_file_size, int quiet, int no_write)
 {
@@ -61,6 +62,27 @@ int flash_ext4_kernel(char* device, char* filename, off_t kernel_file_size, int 
 
 	fclose(kernel_file);
 	fclose(kernel_dev);
+
+	return 1;
+}
+
+int untar_rootfs(char* filename, int quiet, int no_write)
+{
+	optind = 0; // reset getopt_long
+	char* argv[] = {
+		"tar",		// program name
+		"-x",		// extract
+		"-f",
+		filename,	// file
+		NULL
+	};
+	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
+
+	if (!quiet)
+		my_printf("Untar: tar xf %s\n", filename);
+	if (!no_write)
+		if (tar_main(argc, argv) != 0)
+			return 0;
 
 	return 1;
 }

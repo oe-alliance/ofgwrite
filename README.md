@@ -1,7 +1,7 @@
 ofgwrite
 ========
 
-ofgwrite from Betacentauri: Based upon: mtd-utils-native-1.4.9
+ofgwrite from Betacentauri: Based upon: mtd-utils-native-1.5.1 and busybox 1.24.1
 
 Usage: ofgwrite &lt;parameter&gt; &lt;image_directory&gt;  
 Options:  
