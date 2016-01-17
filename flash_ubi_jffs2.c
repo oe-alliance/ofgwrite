@@ -112,6 +112,7 @@ int ubi_write(char* device, char* filename, int quiet, int no_write)
 		device,			// device
 		"-f",			// flash file
 		filename,		// file to flash
+		"-D",			// no detach check
 		NULL
 	};
 	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
@@ -220,8 +221,6 @@ int flash_ubi_jffs2_rootfs(char* device, char* filename, enum RootfsTypeEnum roo
 	if ((type == MTD_NANDFLASH || type == MTD_MLCNANDFLASH) && rootfs_type == UBIFS)
 	{
 		my_printf("Found NAND flash\n");
-		if (!ubi_detach_dev(device, quiet, no_write))
-			return 0;
 		if (!ubi_write(device, filename, quiet, no_write))
 			return 0;
 	}

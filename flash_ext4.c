@@ -30,10 +30,11 @@ int flash_ext4_kernel(char* device, char* filename, off_t kernel_file_size, int 
 	int new_percent     = 0;
 	while (!feof(kernel_file))
 	{
+		// Don't add my_printf for debugging! Debug messages will be written to kernel device!
 		ret = fread(buffer, 1, sizeof(buffer), kernel_file);
 		if (ret == 0)
 		{
-			my_printf("Error reading kernel file.");
+			my_printf("Error reading kernel file.\n");
 			fclose(kernel_file);
 			fclose(kernel_dev);
 			return 0;
@@ -42,8 +43,6 @@ int flash_ext4_kernel(char* device, char* filename, off_t kernel_file_size, int 
 		new_percent = readBytes * 100/ kernel_file_size;
 		if (current_percent < new_percent)
 		{
-			if (!quiet)
-				my_printf("Writing ext4 kernel: Percent %d\n", new_percent);
 			set_step_progress(new_percent);
 			current_percent = new_percent;
 		}
@@ -52,7 +51,7 @@ int flash_ext4_kernel(char* device, char* filename, off_t kernel_file_size, int 
 			ret = fwrite(buffer, ret, 1, kernel_dev);
 			if (ret != 1)
 			{
-				my_printf("Error writing kernel file to kernel device.");
+				my_printf("Error writing kernel file to kernel device.\n");
 				fclose(kernel_file);
 				fclose(kernel_dev);
 				return 0;
@@ -66,7 +65,7 @@ int flash_ext4_kernel(char* device, char* filename, off_t kernel_file_size, int 
 	return 1;
 }
 
-int untar_rootfs(char* filename, int quiet, int no_write)
+int untar_rootfs(char* filename, char* directory, int quiet, int no_write)
 {
 	optind = 0; // reset getopt_long
 	char* argv[] = {
@@ -74,6 +73,8 @@ int untar_rootfs(char* filename, int quiet, int no_write)
 		"-x",		// extract
 		"-f",
 		filename,	// file
+		"-C",
+		directory,	// untar to directory
 		NULL
 	};
 	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
@@ -87,7 +88,23 @@ int untar_rootfs(char* filename, int quiet, int no_write)
 	return 1;
 }
 
-int flash_ext4_rootfs(char* device, char* filename)
+int flash_ext4_rootfs(char* device, char* filename, int quiet, int no_write)
 {
+	int ret;
+	// instead of creating new filesystem just delete whole content
+	set_step("deleting ext4 rootfs");
+	if (!no_write)
+	{
+		ret = system("rm -rf /oldroot/*");
+		ret = system("rm -rf /oldroot/.*"); // delete dot directories, ignore return value as it always fails
+	}
+
+	set_step("Writing ext4 rootfs");
+	if (!untar_rootfs(filename, "/oldroot/", quiet, no_write))
+	{
+		my_printf("Error writing ext4 rootfs\n");
+		return 0;
+	}
+	ret = system("sync");
 	return 1;
 }

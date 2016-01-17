@@ -13,7 +13,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "2.9.9";
+const char ofgwrite_version[] = "3.0.0";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -110,8 +110,9 @@ int find_image_files(char* p)
 		{
 			if (strcmp(entry->d_name, "kernel.bin") == 0			// ET-xx00, XP1000
 			 || strcmp(entry->d_name, "kernel_cfe_auto.bin") == 0	// VU boxes
-			 || strcmp(entry->d_name, "oe_kernel.bin") == 0	// DAGS boxes
-			 || strcmp(entry->d_name, "uImage") == 0)	// Spark boxes
+			 || strcmp(entry->d_name, "oe_kernel.bin") == 0			// DAGS boxes
+			 || strcmp(entry->d_name, "uImage") == 0				// Spark boxes
+			 || strcmp(entry->d_name, "kernel_auto.bin") == 0)		// solo4k
 			{
 				strcpy(kernel_filename, path);
 				strcpy(&kernel_filename[strlen(path)], entry->d_name);
@@ -121,8 +122,9 @@ int find_image_files(char* p)
 			if (strcmp(entry->d_name, "rootfs.bin") == 0			// ET-xx00, XP1000
 			 || strcmp(entry->d_name, "root_cfe_auto.bin") == 0		// Solo2
 			 || strcmp(entry->d_name, "root_cfe_auto.jffs2") == 0	// other VU boxes
-			 || strcmp(entry->d_name, "oe_rootfs.bin") == 0	// DAGS boxes
-			 || strcmp(entry->d_name, "e2jffs2.img") == 0)	// Spark boxes
+			 || strcmp(entry->d_name, "oe_rootfs.bin") == 0			// DAGS boxes
+			 || strcmp(entry->d_name, "e2jffs2.img") == 0			// Spark boxes
+			 || strcmp(entry->d_name, "rootfs.tar.bz2") == 0)		// solo4k
 			{
 				strcpy(rootfs_filename, path);
 				strcpy(&rootfs_filename[strlen(path)], entry->d_name);
@@ -419,7 +421,7 @@ int kernel_flash(char* device, char* filename)
 int rootfs_flash(char* device, char* filename)
 {
 	if (rootfs_type == EXT4)
-		return flash_ext4_rootfs(device, filename);
+		return flash_ext4_rootfs(device, filename, quiet, no_write);
 	else
 		return flash_ubi_jffs2_rootfs(device, filename, rootfs_type, quiet, no_write);
 }
@@ -482,7 +484,7 @@ void readMounts()
 int check_e2_stopped()
 {
 	FILE *fp;
-	int nbytes = 100;
+	size_t nbytes = 100;
 	char* ps_line = (char*)malloc(nbytes + 1);
 	int time = 0;
 	int max_time = 60;
@@ -525,9 +527,8 @@ int check_e2_stopped()
 int daemonize()
 {
 	// Prevents that ofgwrite will be killed when init 1 is performed
-	my_printf("daemonize");
+	my_printf("daemonize\n");
 
-	int ret;
 	pid_t pid = fork();
 	if (pid < 0)
 	{
@@ -567,6 +568,7 @@ int daemonize()
 	return 1;
 }
 
+// doesn't really umount rootfs, because some driver specific binaries(e.g. vu) can't be stopped
 int umount_rootfs()
 {
 	int ret = 0;
@@ -587,7 +589,7 @@ int umount_rootfs()
 	ret += mkdir("/newroot/var/volatile", 777);
 	if (ret != 0)
 	{
-		my_printf("Error creating necessary directories");
+		my_printf("Error creating necessary directories\n");
 		return 0;
 	}
 
@@ -597,7 +599,7 @@ int umount_rootfs()
 	ret += system("cp -ar /sbin/* /newroot/sbin");
 	if (ret != 0)
 	{
-		my_printf("Error copying binary and libs");
+		my_printf("Error copying binary and libs\n");
 		return 0;
 	}
 
@@ -653,20 +655,22 @@ int umount_rootfs()
 
 	// restart init process
 	ret = system("exec init u");
-
 	sleep(1);
 
-	if (umount("/oldroot/") != 0)
+	if (rootfs_type != EXT4)
 	{
-		my_printf("umount rootfs failed");
-		set_error_text1("Error umount rootfs. Abort flashing!");
-		set_error_text2("Rebooting in 30 seconds!");
-		sleep(30);
-		reboot(LINUX_REBOOT_CMD_RESTART);
-		return 0;
+		ret = system("mount -r -o remount /oldroot/");
+		if (ret)
+		{
+			my_printf("Error remounting root! Abort flashing.\n");
+			set_error_text1("Error remounting root! Abort flashing.");
+			set_error_text2("Rebooting in 30 seconds");
+			sleep(30);
+			reboot(LINUX_REBOOT_CMD_RESTART);
+			return 0;
+		}
 	}
 
-	my_printf("umount rootfs successful!");
 	return 1;
 }
 
@@ -683,7 +687,7 @@ int check_env()
 
 int find_kernel_device()
 {
-	strcpy(kernel_device, "/dev/mmcblk0p1");
+	strcpy(kernel_device, "/dev/mmcblk0p1"); // TODO
 	found_kernel_device = 1;
 	my_printf("Using %s as kernel device\n", kernel_device);
 	return 1;
@@ -695,7 +699,7 @@ int check_device_size()
 	unsigned long long devsize = 0;
 	int fd = 0;
 	// check kernel
-	if (found_kernel_device)
+	if (found_kernel_device && kernel_filename[0] != '\0')
 	{
 		fd = open(kernel_device, O_RDONLY);
 		if (fd <= 0)
@@ -710,13 +714,13 @@ int check_device_size()
 		}
 		if (kernel_file_stat.st_size > devsize)
 		{
-			my_printf("Kernel file is bigger than kernel device. Aborting\n");
+			my_printf("Kernel file(%lld) is bigger than kernel device(%llu). Aborting\n", kernel_file_stat.st_size, devsize);
 			return 0;
 		}
 	}
 
 	// check rootfs
-	if (found_rootfs_device)
+	if (found_rootfs_device && rootfs_filename[0] != '\0')
 	{
 		fd = open(rootfs_device, O_RDONLY);
 		if (fd <= 0)
@@ -731,7 +735,7 @@ int check_device_size()
 		}
 		if (rootfs_file_stat.st_size > devsize)
 		{
-			my_printf("Rootfs file is bigger than rootfs device. Aborting\n");
+			my_printf("Rootfs file (%lld) is bigger than rootfs device(%llu). Aborting\n", rootfs_file_stat.st_size, devsize);
 			return 0;
 		}
 	}
@@ -900,7 +904,7 @@ int main(int argc, char *argv[])
 
 		sleep(1);
 
-		set_step("umount rootfs");
+		set_step("init 1");
 		if (!no_write)
 		{
 			if (!daemonize())
@@ -934,11 +938,10 @@ int main(int argc, char *argv[])
 				set_error_text1("Error flashing kernel. System won't boot!");
 				set_error_text2("Please flash backup! Starting E2 in 60 sec");
 				sleep(60);
-				ret = system("init 3");
-				closelog();
-				close_framebuffer();
+				reboot(LINUX_REBOOT_CMD_RESTART);
 				return EXIT_FAILURE;
 			}
+			ret = system("sync");
 			my_printf("Successfully flashed kernel!\n");
 		}
 
