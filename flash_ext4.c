@@ -105,6 +105,6 @@ int flash_ext4_rootfs(char* device, char* filename, int quiet, int no_write)
 		my_printf("Error writing ext4 rootfs\n");
 		return 0;
 	}
-	ret = system("sync");
+	sync();
 	return 1;
 }
