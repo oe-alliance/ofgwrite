@@ -659,7 +659,7 @@ int umount_rootfs()
 
 	if (rootfs_type != EXT4)
 	{
-		mount("/oldroot/", "/oldroot/", "", MS_REMOUNT | MS_RDONLY, NULL);
+		ret = mount("/oldroot/", "/oldroot/", "", MS_REMOUNT | MS_RDONLY, NULL);
 		if (ret)
 		{
 			my_printf("Error remounting root! Abort flashing.\n");
@@ -892,16 +892,6 @@ int main(int argc, char *argv[])
 		my_printf("Syncing filesystem\n");
 		set_step("Syncing filesystem");
 		sync();
-		if (ret)
-		{
-			my_printf("Error syncing filesystem! Rebooting in 60 seconds\n");
-			set_error_text1("Error syncing filesystem!");
-			set_error_text2("Rebooting in 60 seconds");
-			sleep(60);
-			reboot(LINUX_REBOOT_CMD_RESTART);
-			return EXIT_FAILURE;
-		}
-
 		sleep(1);
 
 		set_step("init 1");
