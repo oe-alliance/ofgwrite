@@ -13,7 +13,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.0.0";
+const char ofgwrite_version[] = "3.0.1";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -31,8 +31,6 @@ char rootfs_filename[1000];
 char rootfs_device[1000];
 char rootfs_mtd_device_arg[1000];
 char rootfs_ubi_device[1000];
-struct stat kernel_file_stat;
-struct stat rootfs_file_stat;
 enum RootfsTypeEnum rootfs_type;
 
 
@@ -560,10 +558,6 @@ int daemonize()
 	}
 
 	umask(0);
-	// Close all open files. Without it umount rootfs won't work
-	int u;
-	for (u = sysconf(_SC_OPEN_MAX); u >= 0; u--)
-		close(u);
 	my_printf(" successful\n");
 	return 1;
 }

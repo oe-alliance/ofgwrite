@@ -39,6 +39,9 @@
 	Manuel
  */
 
+// changed for ofgwrite
+#include "../ofgwrite.h"
+
 #include "libbb.h"
 #include "bb_archive.h"
 
@@ -116,6 +119,11 @@ struct bunzip_data {
 static unsigned get_bits(bunzip_data *bd, int bits_wanted)
 {
 	unsigned bits = 0;
+	// changed for ofgwrite
+	static long long bz2_current_pos = 0;
+	static int bz2_current_percent = 0;
+	static int bz2_new_percent = 0;
+
 	/* Cache bd->inbufBitCount in a CPU register (hopefully): */
 	int bit_count = bd->inbufBitCount;
 
@@ -130,6 +138,14 @@ static unsigned get_bits(bunzip_data *bd, int bits_wanted)
 			if (bd->inbufCount <= 0)
 				longjmp(bd->jmpbuf, RETVAL_UNEXPECTED_INPUT_EOF);
 			bd->inbufPos = 0;
+			// changed for ofgwrite
+			bz2_current_pos += bd->inbufCount;
+			bz2_new_percent = (int)(bz2_current_pos * 100 / rootfs_file_stat.st_size);
+			if (bz2_new_percent > bz2_current_percent)
+			{
+				set_step_progress(bz2_new_percent);
+				bz2_current_percent = bz2_new_percent;
+			}
 		}
 
 		/* Avoid 32-bit overflow (dump bit buffer to top of output) */

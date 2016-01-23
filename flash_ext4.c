@@ -100,6 +100,7 @@ int flash_ext4_rootfs(char* device, char* filename, int quiet, int no_write)
 	}
 
 	set_step("Writing ext4 rootfs");
+	set_step_progress(0);
 	if (!untar_rootfs(filename, "/oldroot/", quiet, no_write))
 	{
 		my_printf("Error writing ext4 rootfs\n");
