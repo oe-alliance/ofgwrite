@@ -13,7 +13,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.0.1";
+const char ofgwrite_version[] = "3.0.2";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -681,7 +681,15 @@ int check_env()
 
 int find_kernel_device()
 {
-	strcpy(kernel_device, "/dev/mmcblk0p1"); // TODO
+	char* path = realpath("/dev/disk/by-partlabel/kernel", NULL);
+
+	if (path == NULL)
+	{
+		my_printf("Error: No kernel device found!\n");
+		return 0;
+	}
+
+	strcpy(kernel_device, path);
 	found_kernel_device = 1;
 	my_printf("Using %s as kernel device\n", kernel_device);
 	return 1;
