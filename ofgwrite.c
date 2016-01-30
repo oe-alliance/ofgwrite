@@ -13,7 +13,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.0.2";
+const char ofgwrite_version[] = "3.0.3";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -419,7 +419,7 @@ int kernel_flash(char* device, char* filename)
 int rootfs_flash(char* device, char* filename)
 {
 	if (rootfs_type == EXT4)
-		return flash_ext4_rootfs(device, filename, quiet, no_write);
+		return flash_ext4_rootfs(filename, quiet, no_write);
 	else
 		return flash_ubi_jffs2_rootfs(device, filename, rootfs_type, quiet, no_write);
 }
@@ -458,11 +458,7 @@ void readMounts()
 		else if (strstr (line, " / ") != NULL &&
 				 strstr (line, "ext4") != NULL)
 		{
-			char* pos = strstr(line, " / ");
-			strncpy(rootfs_device, line, pos-line);
-			if (rootfs_device[0] != '\0')
-				found_rootfs_device = 1;
-			my_printf("Found EXT4 rootfs. Device %s\n", rootfs_device);
+			my_printf("Found EXT4 rootfs\n");
 			rootfs_type = EXT4;
 		}
 		else if (strstr (line, "/newroot") != NULL &&
@@ -497,6 +493,7 @@ int check_e2_stopped()
 		if (fp == NULL)
 		{
 			my_printf("Error ps cannot be executed!\n");
+			free(ps_line);
 			return 0;
 		}
 
@@ -516,6 +513,9 @@ int check_e2_stopped()
 		set_step_progress(time * 100 / max_time);
 		pclose(fp);
 	}
+
+	free(ps_line);
+
 	if (e2_found)
 		return 0;
 
@@ -681,17 +681,77 @@ int check_env()
 
 int find_kernel_device()
 {
-	char* path = realpath("/dev/disk/by-partlabel/kernel", NULL);
+	FILE *fp;
+	size_t n = 500;
+	char* line = (char*)malloc(n + 1);
 
-	if (path == NULL)
+	fp = popen("blkid -s PARTLABEL", "r");
+	if (fp == NULL)
+	{
+		my_printf("Error blkid cannot be executed!\n");
+		free(line);
+		return 0;
+	}
+
+	while (getline(&line, &n, fp) != -1)
+	{
+		if (strstr(line, "PARTLABEL=\"kernel\"") != NULL)
+		{
+			char* pos = strstr(line, ":");
+			strncpy(kernel_device, line, pos-line);
+			if (kernel_device[0] != '\0')
+			{
+				found_kernel_device = 1;
+				my_printf("Using %s as kernel device\n", kernel_device);
+			}
+		}
+	}
+	free(line);
+	pclose(fp);
+
+	if (!found_kernel_device)
 	{
 		my_printf("Error: No kernel device found!\n");
 		return 0;
 	}
+	return 1;
+}
 
-	strcpy(kernel_device, path);
-	found_kernel_device = 1;
-	my_printf("Using %s as kernel device\n", kernel_device);
+int find_rootfs_device()
+{
+	FILE *fp;
+	size_t n = 500;
+	char* line = (char*)malloc(n + 1);
+
+	fp = popen("blkid -s PARTLABEL", "r");
+	if (fp == NULL)
+	{
+		my_printf("Error blkid cannot be executed!\n");
+		free(line);
+		return 0;
+	}
+
+	while (getline(&line, &n, fp) != -1)
+	{
+		if (strstr(line, "PARTLABEL=\"rootfs\"") != NULL)
+		{
+			char* pos = strstr(line, ":");
+			strncpy(rootfs_device, line, pos-line);
+			if (rootfs_device[0] != '\0')
+			{
+				found_rootfs_device = 1;
+				my_printf("Using %s as rootfs device\n", rootfs_device);
+			}
+		}
+	}
+	free(line);
+	pclose(fp);
+
+	if (!found_rootfs_device)
+	{
+		my_printf("Error: No rootfs device found!\n");
+		return 0;
+	}
 	return 1;
 }
 
@@ -785,6 +845,8 @@ int main(int argc, char *argv[])
 	{
 		my_printf("\n");
 		if (flash_kernel && !find_kernel_device())
+			return EXIT_FAILURE;
+		if (flash_rootfs && !find_rootfs_device())
 			return EXIT_FAILURE;
 		if (!check_device_size())
 			return EXIT_FAILURE;

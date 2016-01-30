@@ -88,7 +88,7 @@ int untar_rootfs(char* filename, char* directory, int quiet, int no_write)
 	return 1;
 }
 
-int flash_ext4_rootfs(char* device, char* filename, int quiet, int no_write)
+int flash_ext4_rootfs(char* filename, int quiet, int no_write)
 {
 	int ret;
 	// instead of creating new filesystem just delete whole content
