@@ -238,7 +238,8 @@ static bool suid_cfg_readable;
 /* check if u is member of group g */
 static int ingroup(uid_t u, gid_t g)
 {
-	struct group *grp = getgrgid(g);
+	// changed for ofgwrite
+	/*struct group *grp = getgrgid(g);
 	if (grp) {
 		char **mem;
 		for (mem = grp->gr_mem; *mem; mem++) {
@@ -246,7 +247,7 @@ static int ingroup(uid_t u, gid_t g)
 			if (pwd && (pwd->pw_uid == u))
 				return 1;
 		}
-	}
+	}*/
 	return 0;
 }
 
@@ -437,10 +438,10 @@ static void parse_config_file(void)
 						goto pe_label;
 					}
 					*e = ':'; /* get_uidgid needs USER:GROUP syntax */
-					if (get_uidgid(&sct->m_ugid, s, /*allow_numeric:*/ 1) == 0) {
-						errmsg = "unknown user/group";
-						goto pe_label;
-					}
+					//if (get_uidgid(&sct->m_ugid, s, /*allow_numeric:*/ 1) == 0) {
+					//	errmsg = "unknown user/group";
+					//	goto pe_label;
+					//}
 				}
 			}
 			continue;
@@ -833,7 +834,7 @@ int bb_main(int argc UNUSED_PARAM, char **argv)
 		applet_name++;
 	applet_name = bb_basename(applet_name);
 
-	parse_config_file(); /* ...maybe, if FEATURE_SUID_CONFIG */
+	//parse_config_file(); /* ...maybe, if FEATURE_SUID_CONFIG */
 
 	run_applet_and_exit(applet_name, argv);
 

@@ -1,56 +1,67 @@
 SRC = flash_erase.c nandwrite.c ofgwrite.c ubiformat.c ubiutils-common.c libubigen.c libscan.c libubi.c flashcp.c ubidetach.c ubiupdatevol.c fb.c flash_ubi_jffs2.c flash_ext4.c
 
-SRC_TAR=tar/tar.c \
-	tar/libarchive/data_align.c \
-	tar/libarchive/data_extract_all.c \
-	tar/libarchive/data_extract_to_stdout.c \
-	tar/libarchive/data_skip.c \
-	tar/libarchive/decompress_bunzip2.c \
-	tar/libarchive/filter_accept_reject_list.c \
-	tar/libarchive/filter_accept_all.c \
-	tar/libarchive/find_list_entry.c \
-	tar/libarchive/get_header_tar.c \
-	tar/libarchive/header_list.c \
-	tar/libarchive/header_skip.c \
-	tar/libarchive/header_verbose_list.c \
-	tar/libarchive/init_handle.c \
-	tar/libarchive/open_transformer.c \
-	tar/libarchive/seek_by_jump.c \
-	tar/libarchive/seek_by_read.c \
-	tar/libarchive/unsafe_prefix.c \
-	tar/libbb/appletlib.c \
-	tar/libbb/bb_strtonum.c \
-	tar/libbb/compare_string_array.c \
-	tar/libbb/concat_path_file.c \
-	tar/libbb/copyfd.c \
-	tar/libbb/crc32.c \
-	tar/libbb/default_error_retval.c \
-	tar/libbb/full_write.c \
-	tar/libbb/getopt32.c \
-	tar/libbb/last_char_is.c \
-	tar/libbb/llist.c \
-	tar/libbb/makedev.c \
-	tar/libbb/make_directory.c \
-	tar/libbb/messages.c \
-	tar/libbb/mode_string.c \
-	tar/libbb/perror_msg.c \
-	tar/libbb/ptr_to_globals.c \
-	tar/libbb/read.c \
-	tar/libbb/read_printf.c \
-	tar/libbb/safe_poll.c \
-	tar/libbb/safe_strncpy.c \
-	tar/libbb/safe_write.c \
-	tar/libbb/signals.c \
-	tar/libbb/time.c \
-	tar/libbb/verror_msg.c \
-	tar/libbb/xatonum.c \
-	tar/libbb/xfunc_die.c \
-	tar/libbb/xfuncs.c \
-	tar/libbb/xfuncs_printf.c
+SRC_BUSYBOX=busybox/fuser.c \
+	busybox/ps.c \
+	busybox/tar.c \
+	busybox/libarchive/data_align.c \
+	busybox/libarchive/data_extract_all.c \
+	busybox/libarchive/data_extract_to_stdout.c \
+	busybox/libarchive/data_skip.c \
+	busybox/libarchive/decompress_bunzip2.c \
+	busybox/libarchive/filter_accept_reject_list.c \
+	busybox/libarchive/filter_accept_all.c \
+	busybox/libarchive/find_list_entry.c \
+	busybox/libarchive/get_header_tar.c \
+	busybox/libarchive/header_list.c \
+	busybox/libarchive/header_skip.c \
+	busybox/libarchive/header_verbose_list.c \
+	busybox/libarchive/init_handle.c \
+	busybox/libarchive/open_transformer.c \
+	busybox/libarchive/seek_by_jump.c \
+	busybox/libarchive/seek_by_read.c \
+	busybox/libarchive/unsafe_prefix.c \
+	busybox/libbb/appletlib.c \
+	busybox/libbb/auto_string.c \
+	busybox/libbb/bb_strtonum.c \
+	busybox/libbb/compare_string_array.c \
+	busybox/libbb/concat_path_file.c \
+	busybox/libbb/concat_subpath_file.c \
+	busybox/libbb/copyfd.c \
+	busybox/libbb/crc32.c \
+	busybox/libbb/default_error_retval.c \
+	busybox/libbb/full_write.c \
+	busybox/libbb/getopt32.c \
+	busybox/libbb/get_last_path_component.c \
+	busybox/libbb/human_readable.c \
+	busybox/libbb/last_char_is.c \
+	busybox/libbb/llist.c \
+	busybox/libbb/makedev.c \
+	busybox/libbb/make_directory.c \
+	busybox/libbb/messages.c \
+	busybox/libbb/mode_string.c \
+	busybox/libbb/perror_msg.c \
+	busybox/libbb/procps.c \
+	busybox/libbb/ptr_to_globals.c \
+	busybox/libbb/read.c \
+	busybox/libbb/read_printf.c \
+	busybox/libbb/safe_poll.c \
+	busybox/libbb/safe_strncpy.c \
+	busybox/libbb/safe_write.c \
+	busybox/libbb/signals.c \
+	busybox/libbb/skip_whitespace.c \
+	busybox/libbb/time.c \
+	busybox/libbb/u_signal_names.c \
+	busybox/libbb/verror_msg.c \
+	busybox/libbb/wfopen.c \
+	busybox/libbb/xatonum.c \
+	busybox/libbb/xfunc_die.c \
+	busybox/libbb/xfuncs.c \
+	busybox/libbb/xfuncs_printf.c \
+	busybox/libbb/xreadlink.c
 
 
 OBJ = $(SRC:.c=.o)
-OBJ_TAR = $(SRC_TAR:.c=.o)
+OBJ_BUSYBOX = $(SRC_BUSYBOX:.c=.o)
 
 OUT = ofgwrite_bin
 
@@ -63,7 +74,7 @@ LIBOBJ = $(LIBSRC:.c=.o)
 OUT_LIB = ./lib/libmtd.a
 
 CFLAGS ?= -O2
-CFLAGS += -I./include -I./tar/include -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
+CFLAGS += -I./include -I./busybox/include -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
 
 CC ?= gcc
 AR ?= ar
@@ -78,8 +89,8 @@ default: $(OUT_LIB) $(OUT)
 $(OUT_LIB): $(LIBOBJ)
 	$(AR) rcs $(OUT_LIB) $(LIBOBJ)
 
-$(OUT): $(OBJ) $(OBJ_TAR) $(OUT_LIB)
-	$(CC) -o $@ $(OBJ) $(OBJ_TAR) $(LDFLAGS)
+$(OUT): $(OBJ) $(OBJ_BUSYBOX) $(OUT_LIB)
+	$(CC) -o $@ $(OBJ) $(OBJ_BUSYBOX) $(LDFLAGS)
 
 clean:
-	rm -f $(LIBOBJ) $(OUT_LIB) $(OBJ) $(OBJ_TAR) $(OUT)
+	rm -f $(LIBOBJ) $(OUT_LIB) $(OBJ) $(OBJ_BUSYBOX) $(OUT)

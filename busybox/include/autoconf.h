@@ -2,7 +2,7 @@
  * Automatically generated C config: don't edit
  * Busybox version: 1.24.1
  */
-#define AUTOCONF_TIMESTAMP "2016-01-02 18:44:36 CET"
+#define AUTOCONF_TIMESTAMP "2016-02-01 17:44:53 CET"
 
 #define CONFIG_HAVE_DOT_CONFIG 1
 #define ENABLE_HAVE_DOT_CONFIG 1
@@ -3668,10 +3668,14 @@
 #define ENABLE_FREE 0
 #define IF_FREE(...)
 #define IF_NOT_FREE(...) __VA_ARGS__
-#undef CONFIG_FUSER
-#define ENABLE_FUSER 0
-#define IF_FUSER(...)
-#define IF_NOT_FUSER(...) __VA_ARGS__
+#define CONFIG_FUSER 1
+#define ENABLE_FUSER 1
+#ifdef MAKE_SUID
+# define IF_FUSER(...) __VA_ARGS__ "CONFIG_FUSER"
+#else
+# define IF_FUSER(...) __VA_ARGS__
+#endif
+#define IF_NOT_FUSER(...)
 #undef CONFIG_KILL
 #define ENABLE_KILL 0
 #define IF_KILL(...)
@@ -3704,18 +3708,30 @@
 #define ENABLE_PKILL 0
 #define IF_PKILL(...)
 #define IF_NOT_PKILL(...) __VA_ARGS__
-#undef CONFIG_PS
-#define ENABLE_PS 0
-#define IF_PS(...)
-#define IF_NOT_PS(...) __VA_ARGS__
-#undef CONFIG_FEATURE_PS_WIDE
-#define ENABLE_FEATURE_PS_WIDE 0
-#define IF_FEATURE_PS_WIDE(...)
-#define IF_NOT_FEATURE_PS_WIDE(...) __VA_ARGS__
-#undef CONFIG_FEATURE_PS_LONG
-#define ENABLE_FEATURE_PS_LONG 0
-#define IF_FEATURE_PS_LONG(...)
-#define IF_NOT_FEATURE_PS_LONG(...) __VA_ARGS__
+#define CONFIG_PS 1
+#define ENABLE_PS 1
+#ifdef MAKE_SUID
+# define IF_PS(...) __VA_ARGS__ "CONFIG_PS"
+#else
+# define IF_PS(...) __VA_ARGS__
+#endif
+#define IF_NOT_PS(...)
+#define CONFIG_FEATURE_PS_WIDE 1
+#define ENABLE_FEATURE_PS_WIDE 1
+#ifdef MAKE_SUID
+# define IF_FEATURE_PS_WIDE(...) __VA_ARGS__ "CONFIG_FEATURE_PS_WIDE"
+#else
+# define IF_FEATURE_PS_WIDE(...) __VA_ARGS__
+#endif
+#define IF_NOT_FEATURE_PS_WIDE(...)
+#define CONFIG_FEATURE_PS_LONG 1
+#define ENABLE_FEATURE_PS_LONG 1
+#ifdef MAKE_SUID
+# define IF_FEATURE_PS_LONG(...) __VA_ARGS__ "CONFIG_FEATURE_PS_LONG"
+#else
+# define IF_FEATURE_PS_LONG(...) __VA_ARGS__
+#endif
+#define IF_NOT_FEATURE_PS_LONG(...)
 #undef CONFIG_FEATURE_PS_TIME
 #define ENABLE_FEATURE_PS_TIME 0
 #define IF_FEATURE_PS_TIME(...)
