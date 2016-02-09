@@ -13,7 +13,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.0.3";
+const char ofgwrite_version[] = "3.1.0";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -522,6 +522,27 @@ int check_e2_stopped()
 	return 1;
 }
 
+int exec_fuser_kill()
+{
+	optind = 0; // reset getopt_long
+	char* argv[] = {
+		"fuser",		// program name
+		"-k",			// kill
+		"-m",			// mount point
+		"/oldroot/",	// rootfs
+		NULL
+	};
+	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
+
+	set_info_text("Progress might stop now. Please wait until box reboots");
+	my_printf("Execute: fuser -k -m /oldroot/\n");
+	if (!no_write)
+		if (fuser_main(argc, argv) != 0)
+			return 0;
+
+	return 1;
+}
+
 int daemonize()
 {
 	// Prevents that ofgwrite will be killed when init 1 is performed
@@ -562,7 +583,6 @@ int daemonize()
 	return 1;
 }
 
-// doesn't really umount rootfs, because some driver specific binaries(e.g. vu) can't be stopped
 int umount_rootfs()
 {
 	int ret = 0;
@@ -649,9 +669,24 @@ int umount_rootfs()
 
 	// restart init process
 	ret = system("exec init u");
-	sleep(1);
+	sleep(3);
 
-	if (rootfs_type != EXT4)
+	// kill all remaining open processes which prevent umounting rootfs
+	ret = exec_fuser_kill();
+	if (!ret)
+		my_printf("fuser successful\n");
+	sleep(3);
+
+	ret = umount("/oldroot/");
+	if (!ret)
+		my_printf("umount successful\n");
+	if (!ret && rootfs_type == EXT4) // umount success and ext4 -> remount again
+	{
+		ret = mount(rootfs_device, "/oldroot/", "ext4", 0, NULL);
+		if (!ret)
+			my_printf("remount successful\n");
+	}
+	else if (ret && rootfs_type != EXT4) // umount failed -> remount read only
 	{
 		ret = mount("/oldroot/", "/oldroot/", "", MS_REMOUNT | MS_RDONLY, NULL);
 		if (ret)
@@ -664,6 +699,7 @@ int umount_rootfs()
 			return 0;
 		}
 	}
+	// else umount not successful and ext4 -> nevertheless try to exchange rootfs (normally it works)
 
 	return 1;
 }
