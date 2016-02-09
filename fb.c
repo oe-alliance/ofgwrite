@@ -264,6 +264,9 @@ int set_fb_resolution()
 
 void set_step_progress(int percent)
 {
+	if (g_fbFd == -1)
+		return;
+
 	if (percent < 0)
 		percent = 0;
 	if (percent > 100)
