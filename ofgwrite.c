@@ -13,7 +13,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.1.0";
+const char ofgwrite_version[] = "3.1.1";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -608,9 +608,13 @@ int umount_rootfs()
 	}
 
 	// we need init and libs to be able to exec init u later
-	ret =  system("cp -ar /bin/* /newroot/bin");
-	ret += system("cp -ar /lib/* /newroot/lib");
-	ret += system("cp -ar /sbin/* /newroot/sbin");
+	ret =  system("cp -arf /bin/busybox*  /newroot/bin");
+	ret += system("cp -arf /bin/sh*       /newroot/bin");
+	ret += system("cp -arf /bin/bash*     /newroot/bin");
+	ret += system("cp -arf /sbin/init*    /newroot/sbin");
+	ret += system("cp -arf /lib/libcrypt* /newroot/lib");
+	ret += system("cp -arf /lib/libc*     /newroot/lib");
+	ret += system("cp -arf /lib/ld-*      /newroot/lib");
 	if (ret != 0)
 	{
 		my_printf("Error copying binary and libs\n");
@@ -672,10 +676,10 @@ int umount_rootfs()
 	sleep(3);
 
 	// kill all remaining open processes which prevent umounting rootfs
-	ret = exec_fuser_kill();
-	if (!ret)
-		my_printf("fuser successful\n");
-	sleep(3);
+	//ret = exec_fuser_kill();
+	//if (!ret)
+	//	my_printf("fuser successful\n");
+	//sleep(3);
 
 	ret = umount("/oldroot/");
 	if (!ret)
@@ -955,8 +959,10 @@ int main(int argc, char *argv[])
 		}
 
 		int steps = 6;
-		if (flash_kernel)
+		if (flash_kernel && rootfs_type != EXT4)
 			steps+= 2;
+		else if (flash_kernel && rootfs_type == EXT4)
+			steps+= 1;
 		init_framebuffer(steps, ofgwrite_version);
 		set_overall_text("Flashing image");
 		set_step("Killing processes");

@@ -2,7 +2,7 @@
  * Automatically generated C config: don't edit
  * Busybox version: 1.24.1
  */
-#define AUTOCONF_TIMESTAMP "2016-02-01 17:44:53 CET"
+#define AUTOCONF_TIMESTAMP "2016-02-10 19:22:36 CET"
 
 #define CONFIG_HAVE_DOT_CONFIG 1
 #define ENABLE_HAVE_DOT_CONFIG 1
@@ -1156,10 +1156,14 @@
 #define ENABLE_REALPATH 0
 #define IF_REALPATH(...)
 #define IF_NOT_REALPATH(...) __VA_ARGS__
-#undef CONFIG_RM
-#define ENABLE_RM 0
-#define IF_RM(...)
-#define IF_NOT_RM(...) __VA_ARGS__
+#define CONFIG_RM 1
+#define ENABLE_RM 1
+#ifdef MAKE_SUID
+# define IF_RM(...) __VA_ARGS__ "CONFIG_RM"
+#else
+# define IF_RM(...) __VA_ARGS__
+#endif
+#define IF_NOT_RM(...)
 #undef CONFIG_RMDIR
 #define ENABLE_RMDIR 0
 #define IF_RMDIR(...)

@@ -65,6 +65,27 @@ int flash_ext4_kernel(char* device, char* filename, off_t kernel_file_size, int 
 	return 1;
 }
 
+int rm_rootfs(char* directory, int quiet, int no_write)
+{
+	optind = 0; // reset getopt_long
+	char* argv[] = {
+		"rm",		// program name
+		"-r",		// recursive
+		"-f",		// force
+		directory,	// directory
+		NULL
+	};
+	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
+
+	if (!quiet)
+		my_printf("Delete rootfs: rm -r -f %s\n", directory);
+	if (!no_write)
+		if (rm_main(argc, argv) != 0)
+			return 0;
+
+	return 1;
+}
+
 int untar_rootfs(char* filename, char* directory, int quiet, int no_write)
 {
 	optind = 0; // reset getopt_long
@@ -95,8 +116,7 @@ int flash_ext4_rootfs(char* filename, int quiet, int no_write)
 	set_step("deleting ext4 rootfs");
 	if (!no_write)
 	{
-		ret = system("rm -rf /oldroot/*");
-		ret = system("rm -rf /oldroot/.*"); // delete dot directories, ignore return value as it always fails
+		ret = rm_rootfs("/oldroot", quiet, no_write); // ignore return value as it always fails, because oldroot cannot be removed
 	}
 
 	set_step("Writing ext4 rootfs");

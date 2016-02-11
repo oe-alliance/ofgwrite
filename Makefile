@@ -2,6 +2,7 @@ SRC = flash_erase.c nandwrite.c ofgwrite.c ubiformat.c ubiutils-common.c libubig
 
 SRC_BUSYBOX=busybox/fuser.c \
 	busybox/ps.c \
+	busybox/rm.c \
 	busybox/tar.c \
 	busybox/libarchive/data_align.c \
 	busybox/libarchive/data_extract_all.c \
@@ -44,6 +45,7 @@ SRC_BUSYBOX=busybox/fuser.c \
 	busybox/libbb/ptr_to_globals.c \
 	busybox/libbb/read.c \
 	busybox/libbb/read_printf.c \
+	busybox/libbb/remove_file.c \
 	busybox/libbb/safe_poll.c \
 	busybox/libbb/safe_strncpy.c \
 	busybox/libbb/safe_write.c \
