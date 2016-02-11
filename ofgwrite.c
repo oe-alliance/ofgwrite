@@ -858,7 +858,7 @@ int main(int argc, char *argv[])
 
 	my_printf("\nofgwrite Utility v%s\n", ofgwrite_version);
 	my_printf("Author: Betacentauri\n");
-	my_printf("Based upon: mtd-utils-native-1.5.1\n");
+	my_printf("Based upon: mtd-utils-native-1.5.1 and busybox 1.24.1\n");
 	my_printf("Use at your own risk! Make always a backup before use!\n");
 	my_printf("Don't use it if you use multiple ubi volumes in ubi layer!\n\n");
 
