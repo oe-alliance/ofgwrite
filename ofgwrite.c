@@ -13,7 +13,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.1.1";
+const char ofgwrite_version[] = "3.1.2";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -534,7 +534,6 @@ int exec_fuser_kill()
 	};
 	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
 
-	set_info_text("Progress might stop now. Please wait until box reboots");
 	my_printf("Execute: fuser -k -m /oldroot/\n");
 	if (!no_write)
 		if (fuser_main(argc, argv) != 0)
@@ -615,6 +614,8 @@ int umount_rootfs()
 	ret += system("cp -arf /lib/libcrypt* /newroot/lib");
 	ret += system("cp -arf /lib/libc*     /newroot/lib");
 	ret += system("cp -arf /lib/ld-*      /newroot/lib");
+	ret += system("cp -arf /lib/libtinfo* /newroot/lib");
+	ret += system("cp -arf /lib/libdl*    /newroot/lib");
 	if (ret != 0)
 	{
 		my_printf("Error copying binary and libs\n");
@@ -676,14 +677,16 @@ int umount_rootfs()
 	sleep(3);
 
 	// kill all remaining open processes which prevent umounting rootfs
-	//ret = exec_fuser_kill();
-	//if (!ret)
-	//	my_printf("fuser successful\n");
-	//sleep(3);
+	ret = exec_fuser_kill();
+	if (!ret)
+		my_printf("fuser successful\n");
+	sleep(3);
 
 	ret = umount("/oldroot/");
 	if (!ret)
 		my_printf("umount successful\n");
+	else
+		my_printf("umount not successful\n");
 	if (!ret && rootfs_type == EXT4) // umount success and ext4 -> remount again
 	{
 		ret = mount(rootfs_device, "/oldroot/", "ext4", 0, NULL);

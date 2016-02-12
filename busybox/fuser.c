@@ -226,14 +226,12 @@ static smallint scan_recursive(const char *path)
 			case FD_DIR_LINKS:
 			case LIB_DIR_LINKS:
 			case MMAP_DIR_LINKS:
-				stop_scan = scan_recursive(subpath);
-				if (stop_scan)
-					retval = stop_scan;
+				// change for ofgwrite
+				retval = scan_recursive(subpath);
 				break;
 			case MAPS:
-				stop_scan = scan_proc_net_or_maps(subpath, 0);
-				if (stop_scan)
-					retval = stop_scan;
+				// change for ofgwrite
+				retval = scan_proc_net_or_maps(subpath, 0);
 			default:
 				break;
 			}
@@ -242,9 +240,26 @@ static smallint scan_recursive(const char *path)
   scan_link:
 			if (stat(subpath, &statbuf) < 0)
 				break;
-			stop_scan = search_dev_inode(&statbuf);
-			if (stop_scan)
-				retval = stop_scan;
+			// change for ofgwrite
+			retval = search_dev_inode(&statbuf);
+			if (retval)
+			{
+				if (strcmp(d_ent->d_name, "exe") == 0)
+				{
+					char* ln = xmalloc_readlink(subpath);
+					if (ln != NULL)
+					{
+						// change for ofgwrite: Don't kill VU+ specific processes
+						if (strcmp(ln, "/oldroot/usr/bin/dvb_server") == 0 || strcmp(ln, "/oldroot/usr/bin/init_client") == 0)
+						{
+							my_printf("found vu process %s -> don't kill\n", ln);
+							retval = 0;
+							stop_scan=1;
+						}
+						free(ln);
+					}
+				}
+			}
 		default:
 			break;
 		}
