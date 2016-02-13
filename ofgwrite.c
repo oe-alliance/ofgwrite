@@ -13,7 +13,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.2.0";
+const char ofgwrite_version[] = "3.3.0";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -475,11 +475,26 @@ void readMounts()
 		my_printf("Found unknown rootfs\n");
 }
 
+int exec_ps()
+{
+	// call ps
+	optind = 0; // reset getopt_long
+	char* argv[] = {
+		"ps",		// program name
+		NULL
+	};
+	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
+
+	my_printf("Execute: ps\n");
+	if (ps_main(argc, argv) == 9999)
+	{
+		return 1; // e2 found
+	}
+	return 0; // e2 not found
+}
+
 int check_e2_stopped()
 {
-	FILE *fp;
-	size_t nbytes = 100;
-	char* ps_line = (char*)malloc(nbytes + 1);
 	int time = 0;
 	int max_time = 60;
 	int e2_found = 1;
@@ -489,17 +504,10 @@ int check_e2_stopped()
 		my_printf("Checking E2 is running...\n");
 	while (time < max_time && e2_found)
 	{
-		fp = popen("busybox ps | grep /usr/bin/enigma2 | grep -v grep | grep -v enigma2.sh", "r");
-		if (fp == NULL)
-		{
-			my_printf("Error ps cannot be executed!\n");
-			free(ps_line);
-			return 0;
-		}
+		e2_found = exec_ps();
 
-		if (getline(&ps_line, &nbytes, fp) == -1)
+		if (!e2_found)
 		{
-			e2_found = 0;
 			if (!quiet)
 				my_printf("E2 is stopped\n");
 		}
@@ -511,10 +519,7 @@ int check_e2_stopped()
 				my_printf("E2 still running\n");
 		}
 		set_step_progress(time * 100 / max_time);
-		pclose(fp);
 	}
-
-	free(ps_line);
 
 	if (e2_found)
 		return 0;

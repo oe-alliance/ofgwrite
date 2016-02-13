@@ -731,7 +731,7 @@ int ps_main(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 # endif
 	}
 	else {
-		puts("  PID USER       VSZ STAT COMMAND");
+		// changed for ofgwrite puts("  PID USER       VSZ STAT COMMAND");
 	}
 	if (opts & OPT_T) {
 		psscan_flags |= PSSCAN_TASKS;
@@ -740,7 +740,7 @@ int ps_main(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 
 	p = NULL;
 	while ((p = procps_scan(p, psscan_flags)) != NULL) {
-		int len;
+		int len = 0;
 #if ENABLE_SELINUX
 		if (psscan_flags & PSSCAN_CONTEXT) {
 			len = printf("%5u %-32.32s %s  ",
@@ -793,17 +793,20 @@ int ps_main(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 				// changed for ofgwrite
 				//const char *user = get_cached_username(p->uid);
 				const char *user = "";
-				len = printf("%5u %-8.8s %s %s  ",
-					p->pid, user, buf6, p->state);
+				//len = printf("%5u %-8.8s %s %s  ",
+				//	p->pid, user, buf6, p->state);
 			}
 		}
 
 		{
+			// changed for ofgwrite
+			if (strcmp(p->comm, "enigma2") == 0)
+				return 9999;
 			int sz = terminal_width - len;
 			if (sz >= 0) {
 				char buf[sz + 1];
-				read_cmdline(buf, sz, p->pid, p->comm);
-				puts(buf);
+				//read_cmdline(buf, sz, p->pid, p->comm);
+				//puts(buf);
 			}
 		}
 	}
