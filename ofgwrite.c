@@ -13,7 +13,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.1.2";
+const char ofgwrite_version[] = "3.2.0";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -722,80 +722,46 @@ int check_env()
 	return 1;
 }
 
-int find_kernel_device()
+void ext4_kernel_dev_found(const char* dev, int partition_number)
 {
-	FILE *fp;
-	size_t n = 500;
-	char* line = (char*)malloc(n + 1);
+	found_kernel_device = 1;
+	sprintf(kernel_device, "%sp%d", dev, partition_number);
+	my_printf("Using %s as kernel device\n", kernel_device);
+}
 
-	fp = popen("blkid -s PARTLABEL", "r");
-	if (fp == NULL)
-	{
-		my_printf("Error blkid cannot be executed!\n");
-		free(line);
-		return 0;
-	}
+void ext4_rootfs_dev_found(const char* dev, int partition_number)
+{
+	found_rootfs_device = 1;
+	sprintf(rootfs_device, "%sp%d", dev, partition_number);
+	my_printf("Using %s as rootfs device\n", rootfs_device);
+}
 
-	while (getline(&line, &n, fp) != -1)
-	{
-		if (strstr(line, "PARTLABEL=\"kernel\"") != NULL)
-		{
-			char* pos = strstr(line, ":");
-			strncpy(kernel_device, line, pos-line);
-			if (kernel_device[0] != '\0')
-			{
-				found_kernel_device = 1;
-				my_printf("Using %s as kernel device\n", kernel_device);
-			}
-		}
-	}
-	free(line);
-	pclose(fp);
+void find_kernel_rootfs_device()
+{
+	// call fdisk -l
+	optind = 0; // reset getopt_long
+	char* argv[] = {
+		"fdisk",		// program name
+		"-l",			// list
+		NULL
+	};
+	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
+
+	my_printf("Execute: fdisk -l\n");
+	if (fdisk_main(argc, argv) != 0)
+		return;
 
 	if (!found_kernel_device)
 	{
 		my_printf("Error: No kernel device found!\n");
-		return 0;
+		return;
 	}
-	return 1;
-}
-
-int find_rootfs_device()
-{
-	FILE *fp;
-	size_t n = 500;
-	char* line = (char*)malloc(n + 1);
-
-	fp = popen("blkid -s PARTLABEL", "r");
-	if (fp == NULL)
-	{
-		my_printf("Error blkid cannot be executed!\n");
-		free(line);
-		return 0;
-	}
-
-	while (getline(&line, &n, fp) != -1)
-	{
-		if (strstr(line, "PARTLABEL=\"rootfs\"") != NULL)
-		{
-			char* pos = strstr(line, ":");
-			strncpy(rootfs_device, line, pos-line);
-			if (rootfs_device[0] != '\0')
-			{
-				found_rootfs_device = 1;
-				my_printf("Using %s as rootfs device\n", rootfs_device);
-			}
-		}
-	}
-	free(line);
-	pclose(fp);
 
 	if (!found_rootfs_device)
 	{
 		my_printf("Error: No rootfs device found!\n");
-		return 0;
+		return;
 	}
-	return 1;
 }
 
 // Checks whether kernel and rootfs device is bigger than the kernel and rootfs file
@@ -887,9 +853,10 @@ int main(int argc, char *argv[])
 	else if (rootfs_type == EXT4)
 	{
 		my_printf("\n");
-		if (flash_kernel && !find_kernel_device())
+		find_kernel_rootfs_device();
+		if (flash_kernel && !found_kernel_device)
 			return EXIT_FAILURE;
-		if (flash_rootfs && !find_rootfs_device())
+		if (flash_rootfs && !found_rootfs_device)
 			return EXIT_FAILURE;
 		if (!check_device_size())
 			return EXIT_FAILURE;

@@ -1,6 +1,8 @@
 SRC = flash_erase.c nandwrite.c ofgwrite.c ubiformat.c ubiutils-common.c libubigen.c libscan.c libubi.c flashcp.c ubidetach.c ubiupdatevol.c fb.c flash_ubi_jffs2.c flash_ext4.c
 
-SRC_BUSYBOX=busybox/fuser.c \
+SRC_BUSYBOX= busybox/fdisk.c \
+	busybox/fdisk_gpt.c \
+	busybox/fuser.c \
 	busybox/ps.c \
 	busybox/rm.c \
 	busybox/tar.c \
@@ -35,6 +37,7 @@ SRC_BUSYBOX=busybox/fuser.c \
 	busybox/libbb/get_last_path_component.c \
 	busybox/libbb/human_readable.c \
 	busybox/libbb/last_char_is.c \
+	busybox/libbb/lineedit.c \
 	busybox/libbb/llist.c \
 	busybox/libbb/makedev.c \
 	busybox/libbb/make_directory.c \
