@@ -116,12 +116,12 @@ int flash_ext4_rootfs(char* filename, int quiet, int no_write)
 	set_step("deleting ext4 rootfs");
 	if (!no_write)
 	{
-		ret = rm_rootfs("/oldroot", quiet, no_write); // ignore return value as it always fails, because oldroot cannot be removed
+		ret = rm_rootfs("/oldroot_bind", quiet, no_write); // ignore return value as it always fails, because oldroot_bind cannot be removed
 	}
 
 	set_step("Writing ext4 rootfs");
 	set_step_progress(0);
-	if (!untar_rootfs(filename, "/oldroot/", quiet, no_write))
+	if (!untar_rootfs(filename, "/oldroot_bind/", quiet, no_write))
 	{
 		my_printf("Error writing ext4 rootfs\n");
 		return 0;

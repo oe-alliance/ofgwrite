@@ -13,7 +13,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.3.0";
+const char ofgwrite_version[] = "3.3.1";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -600,6 +600,7 @@ int umount_rootfs()
 	ret += mkdir("/newroot/lib", 777);
 	ret += mkdir("/newroot/media", 777);
 	ret += mkdir("/newroot/oldroot", 777);
+	ret += mkdir("/newroot/oldroot_bind", 777);
 	ret += mkdir("/newroot/proc", 777);
 	ret += mkdir("/newroot/sbin", 777);
 	ret += mkdir("/newroot/sys", 777);
@@ -692,11 +693,38 @@ int umount_rootfs()
 		my_printf("umount successful\n");
 	else
 		my_printf("umount not successful\n");
+
 	if (!ret && rootfs_type == EXT4) // umount success and ext4 -> remount again
 	{
-		ret = mount(rootfs_device, "/oldroot/", "ext4", 0, NULL);
+		ret = mount(rootfs_device, "/oldroot_bind/", "ext4", 0, NULL);
 		if (!ret)
-			my_printf("remount successful\n");
+			my_printf("remount to /oldroot_bind/ successful\n");
+		else
+		{
+			my_printf("Error mounting(bind) root! Abort flashing.\n");
+			set_error_text1("Error remounting(bind) root! Abort flashing.");
+			set_error_text2("Rebooting in 30 seconds");
+			sleep(30);
+			reboot(LINUX_REBOOT_CMD_RESTART);
+			return 0;
+		}
+	}
+	else if (ret && rootfs_type == EXT4)
+	// umount failed and ext4 -> bind mountpoint to new /oldroot_bind/
+	// Using bind because otherwise all data in not moved filesystems under /oldroot will be deleted
+	{
+		ret = mount("/oldroot/", "/oldroot_bind/", "", MS_BIND, NULL);
+		if (!ret)
+			my_printf("bind to /oldroot_bind/ successful\n");
+		else
+		{
+			my_printf("Error binding root! Abort flashing.\n");
+			set_error_text1("Error binding root! Abort flashing.");
+			set_error_text2("Rebooting in 30 seconds");
+			sleep(30);
+			reboot(LINUX_REBOOT_CMD_RESTART);
+			return 0;
+		}
 	}
 	else if (ret && rootfs_type != EXT4) // umount failed -> remount read only
 	{
@@ -711,7 +739,6 @@ int umount_rootfs()
 			return 0;
 		}
 	}
-	// else umount not successful and ext4 -> nevertheless try to exchange rootfs (normally it works)
 
 	return 1;
 }
