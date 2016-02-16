@@ -34,6 +34,8 @@ int flash_ext4_kernel(char* device, char* filename, off_t kernel_file_size, int 
 		ret = fread(buffer, 1, sizeof(buffer), kernel_file);
 		if (ret == 0)
 		{
+			if (feof(kernel_file))
+				continue;
 			my_printf("Error reading kernel file.\n");
 			fclose(kernel_file);
 			fclose(kernel_dev);
