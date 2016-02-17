@@ -13,7 +13,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.3.2";
+const char ofgwrite_version[] = "3.3.3";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -619,7 +619,7 @@ int umount_rootfs()
 	ret += system("cp -arf /sbin/init*    /newroot/sbin");
 	ret += system("cp -arf /lib/libcrypt* /newroot/lib");
 	ret += system("cp -arf /lib/libc*     /newroot/lib");
-	ret += system("cp -arf /lib/ld-*      /newroot/lib");
+	ret += system("cp -arf /lib/ld*       /newroot/lib");
 	ret += system("cp -arf /lib/libtinfo* /newroot/lib");
 	ret += system("cp -arf /lib/libdl*    /newroot/lib");
 	if (ret != 0)
