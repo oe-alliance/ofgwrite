@@ -13,7 +13,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.3.3";
+const char ofgwrite_version[] = "3.3.4";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -596,6 +596,7 @@ int umount_rootfs()
 	ret += chdir("/newroot");
 	ret += mkdir("/newroot/bin", 777);
 	ret += mkdir("/newroot/dev", 777);
+	ret += mkdir("/newroot/etc", 777);
 	ret += mkdir("/newroot/dev/pts", 777);
 	ret += mkdir("/newroot/lib", 777);
 	ret += mkdir("/newroot/media", 777);
@@ -668,6 +669,8 @@ int umount_rootfs()
 	ret += mount("/oldroot/proc/", "proc/", NULL, MS_MOVE, NULL);
 	ret += mount("/oldroot/sys/", "sys/", NULL, MS_MOVE, NULL);
 	ret += mount("/oldroot/var/volatile", "var/volatile/", NULL, MS_MOVE, NULL);
+	// create link for tmp
+	ret += symlink("/var/volatile/tmp", "/tmp");
 	if (ret != 0)
 	{
 		my_printf("Error move mounts to newroot\n");
@@ -688,6 +691,7 @@ int umount_rootfs()
 		my_printf("fuser successful\n");
 	sleep(3);
 
+	ret = umount("/oldroot/newroot");
 	ret = umount("/oldroot/");
 	if (!ret)
 		my_printf("umount successful\n");
