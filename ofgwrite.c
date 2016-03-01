@@ -13,7 +13,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.3.4";
+const char ofgwrite_version[] = "3.3.5";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -79,9 +79,14 @@ int find_image_files(char* p)
 {
 	DIR *d;
 	struct dirent *entry;
-	char path[1000];
+	char path[4097];
 
-	strcpy(path, p);
+	if (realpath(p, path) == NULL)
+	{
+		my_printf("Searching image files: Error path couldn't be resolved\n");
+		return 0;
+	}
+	my_printf("Searching image files in %s resolved to %s\n", p, path);
 	kernel_filename[0] = '\0';
 	rootfs_filename[0] = '\0';
 
@@ -208,7 +213,6 @@ int read_args(int argc, char *argv[])
 	}
 	else if (optind + 1 == argc)
 	{
-		my_printf("Searching image files in %s\n", argv[optind]);
 		if (!find_image_files(argv[optind]))
 			return 0;
 
