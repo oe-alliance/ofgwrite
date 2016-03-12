@@ -15,7 +15,7 @@
 #include <mtd/mtd-abi.h>
 
 
-const char ofgwrite_version[] = "2.3.3";
+const char ofgwrite_version[] = "2.3.4";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -96,7 +96,7 @@ int find_image_files(char* p)
 	if (path[strlen(path)-1] != '/')
 	{
 		path[strlen(path)] = '/';
-		path[strlen(path)+1] = '0';
+		path[strlen(path)+1] = '\0';
 	}
 
 	d = opendir(path);
