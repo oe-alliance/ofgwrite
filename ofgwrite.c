@@ -13,7 +13,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.3.6";
+const char ofgwrite_version[] = "3.3.7";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -32,6 +32,8 @@ char rootfs_device[1000];
 char rootfs_mtd_device_arg[1000];
 char rootfs_ubi_device[1000];
 enum RootfsTypeEnum rootfs_type;
+char media_mounts[30][500];
+int media_mount_count = 0;
 
 
 void my_printf(char const *fmt, ...)
@@ -432,6 +434,12 @@ int rootfs_flash(char* device, char* filename)
 void readMounts()
 {
 	FILE* f;
+	char* pos_start;
+	char* pos_end;
+	int k;
+
+	for (k = 0; k < 30; k++)
+		media_mounts[k][0] = '\0';
 
 	rootfs_type = UNKNOWN;
 
@@ -470,6 +478,15 @@ void readMounts()
 		{
 			my_printf("Found mounted /newroot\n");
 			newroot_mounted = 1;
+		}
+		else if ((pos_start = strstr (line, " /media/")) != NULL && media_mount_count < 30)
+		{
+			pos_end = strstr(pos_start + 1, " ");
+			if (pos_end)
+			{
+				strncpy(media_mounts[media_mount_count], pos_start + 1, pos_end - pos_start - 1);
+				media_mount_count++;
+			}
 		}
 	}
 
@@ -669,7 +686,6 @@ int umount_rootfs()
 	ret = chdir("/");
 	// move mounts to new root
 	ret =  mount("/oldroot/dev/", "dev/", NULL, MS_MOVE, NULL);
-	ret += mount("/oldroot/media/", "media/", NULL, MS_MOVE, NULL);
 	ret += mount("/oldroot/proc/", "proc/", NULL, MS_MOVE, NULL);
 	ret += mount("/oldroot/sys/", "sys/", NULL, MS_MOVE, NULL);
 	ret += mount("/oldroot/var/volatile", "var/volatile/", NULL, MS_MOVE, NULL);
@@ -683,6 +699,31 @@ int umount_rootfs()
 		sleep(30);
 		reboot(LINUX_REBOOT_CMD_RESTART);
 		return 0;
+	}
+	ret = mount("/oldroot/media/", "media/", NULL, MS_MOVE, NULL);
+	if (ret != 0)
+	{
+		// /media is no tmpfs -> move every mount
+		my_printf("/media is not tmpfs\n");
+		int k;
+		char oldroot_path[1000];
+		for (k = 0; k < media_mount_count; k++)
+		{
+			strcpy(oldroot_path, "/oldroot");
+			strcat(oldroot_path, media_mounts[k]);
+			mkdir(media_mounts[k], 777);
+			my_printf("Moving %s to %s\n", oldroot_path, media_mounts[k]);
+			ret = mount(oldroot_path, media_mounts[k], NULL, MS_MOVE, NULL);
+			if (ret != 0)
+			{
+				my_printf("Error moving media mount %s\n", media_mounts[k]);
+				set_error_text1("Error move media mount to newroot. Abort flashing!");
+				set_error_text2("Rebooting in 30 seconds!");
+				sleep(30);
+				reboot(LINUX_REBOOT_CMD_RESTART);
+				return 0;
+			}
+		}
 	}
 
 	// restart init process
