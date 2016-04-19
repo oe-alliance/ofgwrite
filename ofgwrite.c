@@ -95,8 +95,8 @@ int find_image_files(char* p)
 	// add / to the end of the path
 	if (path[strlen(path)-1] != '/')
 	{
-		path[strlen(path)] = '/';
 		path[strlen(path)+1] = '\0';
+		path[strlen(path)] = '/';
 	}
 
 	d = opendir(path);
