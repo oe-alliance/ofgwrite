@@ -120,7 +120,7 @@ void init_progressbars(int steps)
 	g_pb_overall.x2 = g_window.x2 - (g_window.width * 0.2 / 2 - g_pb_overall.outer_border_width - g_pb_overall.inner_border_width);
 	g_pb_overall.y2 = g_pb_overall.y1 + g_pb_overall.height + 2 * g_pb_overall.outer_border_width + 2* g_pb_overall.inner_border_width;
 	g_pb_overall.steps = steps;
-	
+
 	g_pb_step.width = g_window.width * 0.8;
 	g_pb_step.height = g_window.height * 0.1;
 	g_pb_step.outer_border_width = 10;
@@ -129,7 +129,10 @@ void init_progressbars(int steps)
 	g_pb_step.y1 = g_window.y1 + g_window.height * 0.65;
 	g_pb_step.x2 = g_window.x2 - (g_window.width * 0.2 / 2 - g_pb_step.outer_border_width - g_pb_step.inner_border_width);
 	g_pb_step.y2 = g_pb_step.y1 + g_pb_step.height + 2 * g_pb_step.outer_border_width + 2 * g_pb_step.inner_border_width;
+}
 
+void paint_progressbars()
+{
 	// paint white border around overall progressbar
 	paint_box(g_pb_overall.x1, g_pb_overall.y1, g_pb_overall.x2, g_pb_overall.y2, WHITE);
 
@@ -444,6 +447,16 @@ void set_step(char* str)
 	set_step_progress(0);
 }
 
+void set_step_without_incr(char* str)
+{
+	if (g_fbFd == -1)
+		return;
+
+	set_step_text(str);
+	set_overall_progress(g_step);
+	blit();
+}
+
 void set_info_text(char* str)
 {
 	if (g_fbFd == -1)
@@ -525,18 +538,6 @@ void set_error_text2(char* str)
 	blit();
 }
 
-void clearOSD()
-{
-	if (g_fbFd == -1)
-		return;
-
-	paint_box(0, 0, g_screeninfo_var.xres, g_window.y1, TRANS);
-	paint_box(0, g_window.y1, g_window.x1, g_screeninfo_var.yres, TRANS);
-	paint_box(g_window.x2, g_window.y1, g_screeninfo_var.xres, g_screeninfo_var.yres, TRANS);
-	paint_box(g_window.x1, g_window.y2, g_window.x2, g_screeninfo_var.yres, TRANS);
-	blit();
-}
-
 int loadBackgroundImage()
 {
 	int ret;
@@ -561,7 +562,7 @@ int loadBackgroundImage()
 	return 1;
 }
 
-int init_framebuffer(int steps, const char* version)
+int init_framebuffer(int steps)
 {
 	if (g_fbFd == -1)
 		if (!open_framebuffer())
@@ -599,8 +600,18 @@ int init_framebuffer(int steps, const char* version)
 	// hide all old osd content
 	paint_box(0, 0, g_screeninfo_var.xres, g_screeninfo_var.yres, TRANS);
 
+	init_progressbars(steps);
+
+	return 1;
+}
+
+int show_main_window(int show_background_image, const char* version)
+{
+	// hide all old osd content
+	paint_box(0, 0, g_screeninfo_var.xres, g_screeninfo_var.yres, TRANS);
+
 	// set background image
-	if (!loadBackgroundImage())
+	if (show_background_image && !loadBackgroundImage())
 	{ // if image not present paint black background
 		my_printf("Error: Found no background image, or image is unusable\n");
 		paint_box(0, 0, g_screeninfo_var.xres, g_screeninfo_var.yres, BLACK);
@@ -608,8 +619,7 @@ int init_framebuffer(int steps, const char* version)
 
 	// paint window
 	paint_box(g_window.x1, g_window.y1, g_window.x2, g_window.y2, BLACK);
-
-	init_progressbars(steps);
+	paint_progressbars();
 
 	set_title("ofgwrite Flashing Tool");
 	char version_string[60];

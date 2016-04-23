@@ -13,7 +13,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.3.7";
+const char ofgwrite_version[] = "3.4.0";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -671,7 +671,10 @@ int umount_rootfs()
 		ret = system("init 3");
 		return 0;
 	}
-	sleep(3);
+	show_main_window(1, ofgwrite_version);
+	set_overall_text("Flashing image");
+	set_step_without_incr("Wait until E2 is stopped");
+	sleep(2);
 
 	ret = pivot_root("/newroot/", "oldroot");
 	if (ret)
@@ -972,7 +975,8 @@ int main(int argc, char *argv[])
 		if (!quiet)
 			my_printf("Flashing kernel ...\n");
 
-		init_framebuffer(2, ofgwrite_version);
+		init_framebuffer(2);
+		show_main_window(0, ofgwrite_version);
 		set_overall_text("Flashing kernel");
 
 		if (!kernel_flash(kernel_device, kernel_filename))
@@ -1014,7 +1018,8 @@ int main(int argc, char *argv[])
 			steps+= 2;
 		else if (flash_kernel && rootfs_type == EXT4)
 			steps+= 1;
-		init_framebuffer(steps, ofgwrite_version);
+		init_framebuffer(steps);
+		show_main_window(0, ofgwrite_version);
 		set_overall_text("Flashing image");
 		set_step("Killing processes");
 
@@ -1067,11 +1072,6 @@ int main(int argc, char *argv[])
 				return EXIT_FAILURE;
 			}
 		}
-
-		// Remove rest of E2 osd
-		clearOSD();
-		// reload background image because if E2 was running when init_framebuffer was executed the image is not visible
-		loadBackgroundImage();
 
 		//Flash kernel
 		if (flash_kernel)
