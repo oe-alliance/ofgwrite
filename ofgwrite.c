@@ -9,7 +9,6 @@
 #include <fcntl.h>
 #include <linux/reboot.h>
 #include <syslog.h>
-#include <sys/stat.h>
 #include <sys/mount.h>
 #include <unistd.h>
 
