@@ -12,7 +12,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.4.0";
+const char ofgwrite_version[] = "3.5.0";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -71,6 +71,7 @@ void printUsage()
 	my_printf("   -kmtdx --kernel=mtdx  use mtdx device for kernel flashing\n");
 	my_printf("   -r --rootfs           flash rootfs with automatic device recognition(default)\n");
 	my_printf("   -rmtdy --rootfs=mtdy  use mtdy device for rootfs flashing\n");
+	my_printf("   -mx --multi=x         flash multiboot partition x (x= 1, 2, 3,...). Only supported by some boxes.\n");
 	my_printf("   -n --nowrite          show only found image and mtd partitions (no write)\n");
 	my_printf("   -q --quiet            show less output\n");
 	my_printf("   -h --help             show help\n");
@@ -147,14 +148,17 @@ int read_args(int argc, char *argv[])
 {
 	int option_index = 0;
 	int opt;
-	static const char *short_options = "k::r::nqh";
+	static const char *short_options = "k::r::nm:qh";
 	static const struct option long_options[] = {
 												{"kernel" , optional_argument, NULL, 'k'},
 												{"rootfs" , optional_argument, NULL, 'r'},
 												{"nowrite", no_argument      , NULL, 'n'},
+												{"multi"  , required_argument, NULL, 'm'},
 												{"quiet"  , no_argument      , NULL, 'q'},
 												{"help"   , no_argument      , NULL, 'h'},
 												{NULL     , no_argument      , NULL,  0} };
+
+	multiboot_partition = -1;
 
 	while ((opt= getopt_long(argc, argv, short_options, long_options, &option_index)) != -1)
 	{
@@ -187,6 +191,20 @@ int read_args(int argc, char *argv[])
 				}
 				else
 					my_printf("Flashing rootfs\n");
+				break;
+			case 'm':
+				if (optarg)
+					if (strlen(optarg) == 1 && ((int)optarg[0] >= 48) && ((int)optarg[0] <= 57))
+					{
+						multiboot_partition = strtol(optarg, NULL, 10);
+						my_printf("Flashing multiboot partition %d\n", multiboot_partition);
+					}
+					else
+					{
+						my_printf("Error: Wrong multiboot partition value. Only values between 0 and 9 are allowed!\n");
+						show_help = 1;
+						return 0;
+					}
 				break;
 			case 'n':
 				no_write = 1;

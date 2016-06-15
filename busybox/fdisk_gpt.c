@@ -1,3 +1,5 @@
+#include "../ofgwrite.h"
+
 #if ENABLE_FEATURE_GPT_LABEL
 /*
  * Copyright (C) 2010 Kevin Cernekee <cernekee@gmail.com>
@@ -120,12 +122,24 @@ gpt_list_table(int xtra UNUSED_PARAM)
 			bb_putchar('\n');*/
 			// adapted for ofgwrite: ignore upper byte as we only need us ascii chars
 			char partname[19];
+			char kernel_name[7];
+			char rootfs_name[7];
 			int k;
+			if (multiboot_partition != -1)
+			{
+				sprintf(kernel_name, "kernel%d", multiboot_partition);
+				sprintf(rootfs_name, "rootfs%d", multiboot_partition);
+			}
+			else
+			{
+				strcpy(kernel_name, "kernel");
+				strcpy(rootfs_name, "rootfs");
+			}
 			for (k = 0; k<19; k++)
 				partname[k] = (char)p->name[k];
-			if (strcmp(partname, "kernel") == 0)
+			if (strcmp(partname, kernel_name) == 0)
 				ext4_kernel_dev_found(disk_device, i+1);
-			if (strcmp(partname, "rootfs") == 0)
+			if (strcmp(partname, rootfs_name) == 0)
 				ext4_rootfs_dev_found(disk_device, i+1);
 		}
 	}
