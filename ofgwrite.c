@@ -12,7 +12,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.5.0";
+const char ofgwrite_version[] = "3.5.5";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -33,6 +33,7 @@ char rootfs_ubi_device[1000];
 enum RootfsTypeEnum rootfs_type;
 char media_mounts[30][500];
 int media_mount_count = 0;
+int stop_e2_needed = 1;
 
 
 void my_printf(char const *fmt, ...)
@@ -837,6 +838,49 @@ void ext4_rootfs_dev_found(const char* dev, int partition_number)
 	my_printf("Using %s as rootfs device\n", rootfs_device);
 }
 
+void determineCurrentUsedRootfs()
+{
+	my_printf("Determine current rootfs\n");
+	// Read /proc/cmdline to distinguish whether current running image should be flashed
+	FILE* f;
+
+	f = fopen("/proc/cmdline", "r");
+	if (f == NULL)
+	{
+		perror("Error while opening /proc/cmdline");
+		return;
+	}
+
+	char line[1000];
+	char dev [1000];
+	char* pos;
+	char* pos2;
+	memset(dev, 0, sizeof(dev));
+
+	if (fgets(line, 1000, f) != NULL)
+	{
+		pos = strstr(line, "root=");
+		if (pos)
+		{
+			pos2 = strstr(pos, " ");
+			if (pos2)
+			{
+				strncpy(dev, pos + 5, pos2-pos-5);
+			}
+			else
+			{
+				strcpy(dev, pos + 5);
+			}
+		}
+	}
+	my_printf("Current rootfs is: %s\n", dev);
+	if (strcmp(rootfs_device, dev) != 0)
+	{
+		stop_e2_needed = 0;
+		my_printf("Flashing currently not running image\n");
+	}
+}
+
 void find_kernel_rootfs_device()
 {
 	// call fdisk -l
@@ -863,6 +907,8 @@ void find_kernel_rootfs_device()
 		my_printf("Error: No rootfs device found!\n");
 		return;
 	}
+
+	determineCurrentUsedRootfs();
 }
 
 // Checks whether kernel and rootfs device is bigger than the kernel and rootfs file
@@ -1041,7 +1087,7 @@ int main(int argc, char *argv[])
 		set_step("Killing processes");
 
 		// kill nmbd, smbd, rpc.mountd and rpc.statd -> otherwise remounting root read-only is not possible
-		if (!no_write)
+		if (!no_write && stop_e2_needed)
 		{
 			ret = system("killall nmbd");
 			ret = system("killall smbd");
@@ -1074,7 +1120,7 @@ int main(int argc, char *argv[])
 		sleep(1);
 
 		set_step("init 1");
-		if (!no_write)
+		if (!no_write && stop_e2_needed)
 		{
 			if (!daemonize())
 			{
@@ -1086,6 +1132,22 @@ int main(int argc, char *argv[])
 			{
 				closelog();
 				close_framebuffer();
+				return EXIT_FAILURE;
+			}
+		}
+		// if not running rootfs is flashed then we need to mount it before start flashing
+		if (!no_write && !stop_e2_needed && rootfs_type == EXT4)
+		{
+			mkdir("/oldroot_bind", 777);
+			// mount rootfs device
+			ret = mount(rootfs_device, "/oldroot_bind/", "ext4", 0, NULL);
+			if (!ret)
+				my_printf("Mount to /oldroot_bind/ successful\n");
+			else
+			{
+				my_printf("Error mounting root! Abort flashing.\n");
+				set_error_text1("Error mounting root! Abort flashing.");
+				sleep(30);
 				return EXIT_FAILURE;
 			}
 		}
@@ -1102,7 +1164,8 @@ int main(int argc, char *argv[])
 				set_error_text1("Error flashing kernel. System won't boot!");
 				set_error_text2("Please flash backup! Starting E2 in 60 sec");
 				sleep(60);
-				reboot(LINUX_REBOOT_CMD_RESTART);
+				if (stop_e2_needed)
+					reboot(LINUX_REBOOT_CMD_RESTART);
 				return EXIT_FAILURE;
 			}
 			sync();
@@ -1116,7 +1179,8 @@ int main(int argc, char *argv[])
 			set_error_text1("Error flashing rootfs. System won't boot!");
 			set_error_text2("Please flash backup! Rebooting in 60 sec");
 			sleep(60);
-			reboot(LINUX_REBOOT_CMD_RESTART);
+			if (stop_e2_needed)
+				reboot(LINUX_REBOOT_CMD_RESTART);
 			return EXIT_FAILURE;
 		}
 
@@ -1125,7 +1189,7 @@ int main(int argc, char *argv[])
 		fflush(stdout);
 		fflush(stderr);
 		sleep(3);
-		if (!no_write)
+		if (!no_write && stop_e2_needed)
 		{
 			reboot(LINUX_REBOOT_CMD_RESTART);
 		}
