@@ -12,7 +12,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.5.5";
+const char ofgwrite_version[] = "3.5.6";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -1138,6 +1138,7 @@ int main(int argc, char *argv[])
 		// if not running rootfs is flashed then we need to mount it before start flashing
 		if (!no_write && !stop_e2_needed && rootfs_type == EXT4)
 		{
+			set_step("Mount rootfs");
 			mkdir("/oldroot_bind", 777);
 			// mount rootfs device
 			ret = mount(rootfs_device, "/oldroot_bind/", "ext4", 0, NULL);
@@ -1185,7 +1186,10 @@ int main(int argc, char *argv[])
 		}
 
 		my_printf("Successfully flashed rootfs! Rebooting in 3 seconds...\n");
-		set_step("Successfully flashed! Rebooting in 3 seconds");
+		if (!stop_e2_needed)
+			set_step("Successfully flashed!");
+		else
+			set_step("Successfully flashed! Rebooting in 3 seconds");
 		fflush(stdout);
 		fflush(stderr);
 		sleep(3);
