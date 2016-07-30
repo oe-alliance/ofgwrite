@@ -12,7 +12,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.5.6";
+const char ofgwrite_version[] = "3.5.7";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;

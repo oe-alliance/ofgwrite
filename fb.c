@@ -577,7 +577,7 @@ int init_framebuffer(int steps)
 		return 0;
 	}
 
-	if (   g_screeninfo_var.xres != FB_WIDTH
+	/*if (   g_screeninfo_var.xres != FB_WIDTH
 		|| g_screeninfo_var.yres != FB_HEIGHT
 		|| g_screeninfo_var.bits_per_pixel != FB_BPP)
 	{
@@ -587,7 +587,7 @@ int init_framebuffer(int steps)
 			close_framebuffer();
 			return 0;
 		}
-	}
+	}*/
 
 	if (!mmap_fb())
 	{
