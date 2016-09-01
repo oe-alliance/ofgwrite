@@ -565,7 +565,7 @@ static int format(libmtd_t libmtd, const struct mtd_dev_info *mtd,
 		  const struct ubigen_info *ui, struct ubi_scan_info *si,
 		  int start_eb, int novtbl)
 {
-	set_step("Formating remaining eraseblocks");
+	set_step("Formatting remaining eraseblocks");
 
 	int eb, err, write_size;
 	struct ubi_ec_hdr *hdr;
