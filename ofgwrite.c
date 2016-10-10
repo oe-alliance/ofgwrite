@@ -12,7 +12,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.5.7";
+const char ofgwrite_version[] = "3.5.8";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -535,7 +535,7 @@ int exec_ps()
 int check_e2_stopped()
 {
 	int time = 0;
-	int max_time = 60;
+	int max_time = 70;
 	int e2_found = 1;
 
 	set_step_progress(0);
@@ -734,16 +734,8 @@ int umount_rootfs()
 			strcat(oldroot_path, media_mounts[k]);
 			mkdir(media_mounts[k], 777);
 			my_printf("Moving %s to %s\n", oldroot_path, media_mounts[k]);
-			ret = mount(oldroot_path, media_mounts[k], NULL, MS_MOVE, NULL);
-			if (ret != 0)
-			{
-				my_printf("Error moving media mount %s\n", media_mounts[k]);
-				set_error_text1("Error move media mount to newroot. Abort flashing!");
-				set_error_text2("Rebooting in 30 seconds!");
-				sleep(30);
-				reboot(LINUX_REBOOT_CMD_RESTART);
-				return 0;
-			}
+			// mount move: ignore errors as e.g. network shares cannot be moved
+			mount(oldroot_path, media_mounts[k], NULL, MS_MOVE, NULL);
 		}
 	}
 
