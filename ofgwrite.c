@@ -12,7 +12,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.5.8";
+const char ofgwrite_version[] = "3.5.9";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -114,11 +114,9 @@ int find_image_files(char* p)
 		entry = readdir(d);
 		if (entry)
 		{
-			if (strcmp(entry->d_name, "kernel.bin") == 0			// ET-xx00, XP1000
-			 || strcmp(entry->d_name, "kernel_cfe_auto.bin") == 0	// VU boxes
-			 || strcmp(entry->d_name, "oe_kernel.bin") == 0			// DAGS boxes
-			 || strcmp(entry->d_name, "uImage") == 0				// Spark boxes
-			 || strcmp(entry->d_name, "kernel_auto.bin") == 0)		// solo4k
+			if ((strstr(entry->d_name, "kernel") != NULL
+			  && strstr(entry->d_name, ".bin")   != NULL)			// ET-xx00, XP1000, VU boxes, DAGS boxes
+			 || strcmp(entry->d_name, "uImage") == 0)				// Spark boxes
 			{
 				strcpy(kernel_filename, path);
 				strcpy(&kernel_filename[strlen(path)], entry->d_name);
@@ -871,6 +869,7 @@ void determineCurrentUsedRootfs()
 		stop_e2_needed = 0;
 		my_printf("Flashing currently not running image\n");
 	}
+	fclose(f);
 }
 
 void find_kernel_rootfs_device()
