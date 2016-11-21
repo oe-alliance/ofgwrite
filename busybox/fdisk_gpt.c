@@ -107,6 +107,22 @@ gpt_list_table(int xtra UNUSED_PARAM)
 		(unsigned long long)SWAP_LE64(gpt_hdr->last_usable_lba));
 */
 	//puts("Number  Start (sector)    End (sector)  Size       Code  Name");
+	char kernel_name[7];
+	char rootfs_name[7];
+	int found_kernel = 0;
+	int found_rootfs = 0;
+	int cnt_kernel_devs = 0;
+	int cnt_rootfs_devs = 0;
+	if (multiboot_partition != -1)
+	{
+		sprintf(kernel_name, "kernel%d", multiboot_partition);
+		sprintf(rootfs_name, "rootfs%d", multiboot_partition);
+	}
+	else
+	{
+		strcpy(kernel_name, "kernel");
+		strcpy(rootfs_name, "rootfs");
+	}
 	for (i = 0; i < n_parts; i++) {
 		gpt_partition *p = gpt_part(i);
 		if (p->lba_start) {
@@ -122,24 +138,43 @@ gpt_list_table(int xtra UNUSED_PARAM)
 			bb_putchar('\n');*/
 			// adapted for ofgwrite: ignore upper byte as we only need us ascii chars
 			char partname[19];
-			char kernel_name[7];
-			char rootfs_name[7];
 			int k;
-			if (multiboot_partition != -1)
-			{
-				sprintf(kernel_name, "kernel%d", multiboot_partition);
-				sprintf(rootfs_name, "rootfs%d", multiboot_partition);
-			}
-			else
-			{
-				strcpy(kernel_name, "kernel");
-				strcpy(rootfs_name, "rootfs");
-			}
 			for (k = 0; k<19; k++)
 				partname[k] = (char)p->name[k];
+			if (strncmp(partname, "kernel", 6) == 0)
+				cnt_kernel_devs++;
+			if (strncmp(partname, "rootfs", 6) == 0)
+				cnt_rootfs_devs++;
 			if (strcmp(partname, kernel_name) == 0)
+			{
 				ext4_kernel_dev_found(disk_device, i+1);
+				found_kernel = 1;
+			}
 			if (strcmp(partname, rootfs_name) == 0)
+			{
+				ext4_rootfs_dev_found(disk_device, i+1);
+				found_rootfs = 1;
+			}
+		}
+	}
+	if (found_kernel || found_rootfs || multiboot_partition != -1 || cnt_kernel_devs != 1 || cnt_rootfs_devs != 1)
+		return;
+
+	my_printf("No matching partition names are found. But we found 1 kernel and 1 rootfs partition starting with kernel/rootfs\n");
+
+	// -> no kernel/rootfs device and no multiboot and only 1 kernel and 1 rootfs partition with wrong name is found
+	// -> use found kernel/rootfs device
+	// most likely it is hd51 with kernel1 and rootfs1 partitions
+	for (i = 0; i < n_parts; i++) {
+		gpt_partition *p = gpt_part(i);
+		if (p->lba_start) {
+			char partname[19];
+			int k;
+			for (k = 0; k<19; k++)
+				partname[k] = (char)p->name[k];
+			if (strncmp(partname, kernel_name, 6) == 0)
+				ext4_kernel_dev_found(disk_device, i+1);
+			if (strncmp(partname, rootfs_name, 6) == 0)
 				ext4_rootfs_dev_found(disk_device, i+1);
 		}
 	}
