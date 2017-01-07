@@ -12,7 +12,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.6.0";
+const char ofgwrite_version[] = "3.7.0";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -640,8 +640,12 @@ int umount_rootfs()
 	ret += mkdir("/newroot/oldroot", 777);
 	ret += mkdir("/newroot/oldroot_bind", 777);
 	ret += mkdir("/newroot/proc", 777);
+	ret += mkdir("/newroot/run", 777);
 	ret += mkdir("/newroot/sbin", 777);
 	ret += mkdir("/newroot/sys", 777);
+	ret += mkdir("/newroot/usr", 777);
+	ret += mkdir("/newroot/usr/lib", 777);
+	ret += mkdir("/newroot/usr/lib/autofs", 777);
 	ret += mkdir("/newroot/var", 777);
 	ret += mkdir("/newroot/var/volatile", 777);
 	if (ret != 0)
@@ -651,24 +655,37 @@ int umount_rootfs()
 	}
 
 	// we need init and libs to be able to exec init u later
-	ret =  system("cp -arf /bin/busybox*  /newroot/bin");
-	ret += system("cp -arf /bin/sh*       /newroot/bin");
-	ret += system("cp -arf /bin/bash*     /newroot/bin");
-	ret += system("cp -arf /sbin/init*    /newroot/sbin");
-	ret += system("cp -arf /lib/libcrypt* /newroot/lib");
-	ret += system("cp -arf /lib/libc*     /newroot/lib");
-	ret += system("cp -arf /lib/ld*       /newroot/lib");
-	ret += system("cp -arf /lib/libtinfo* /newroot/lib");
-	ret += system("cp -arf /lib/libdl*    /newroot/lib");
+	ret =  system("cp -arf /bin/busybox*     /newroot/bin");
+	ret += system("cp -arf /bin/sh*          /newroot/bin");
+	ret += system("cp -arf /bin/bash*        /newroot/bin");
+	ret += system("cp -arf /sbin/init*       /newroot/sbin");
+	ret += system("cp -arf /lib/libcrypt*    /newroot/lib");
+	ret += system("cp -arf /lib/libc*        /newroot/lib");
+	ret += system("cp -arf /lib/ld*          /newroot/lib");
+	ret += system("cp -arf /lib/libtinfo*    /newroot/lib");
+	ret += system("cp -arf /lib/libdl*       /newroot/lib");
+
 	if (ret != 0)
 	{
 		my_printf("Error copying binary and libs\n");
 		return 0;
 	}
 
+	// copy for automount ignore errors as autofs is maybe not installed
+	ret = system("cp -arf /usr/sbin/autom*  /newroot/bin");
+	ret += system("cp -arf /etc/auto*        /newroot/etc");
+	ret += system("cp -arf /lib/libpthread*  /newroot/lib");
+	ret += system("cp -arf /lib/libnss*      /newroot/lib");
+	ret += system("cp -arf /lib/libnsl*      /newroot/lib");
+	ret += system("cp -arf /lib/libresolv*   /newroot/lib");
+	ret += system("cp -arf /usr/lib/libtirp* /newroot/usr/lib");
+	ret += system("cp -arf /usr/lib/autofs/* /newroot/usr/lib/autofs");
+	ret += system("cp -arf /etc/nsswitch*    /newroot/etc");
+	ret += system("cp -arf /etc/resolv*      /newroot/etc");
+
 	// Switch to user mode 1
-	my_printf("Switching to user mode 1\n");
-	ret = system("init 1");
+	my_printf("Switching to user mode 2\n");
+	ret = system("init 2");
 	if (ret)
 	{
 		my_printf("Error switching runmode!\n");
@@ -735,6 +752,17 @@ int umount_rootfs()
 			// mount move: ignore errors as e.g. network shares cannot be moved
 			mount(oldroot_path, media_mounts[k], NULL, MS_MOVE, NULL);
 		}
+	}
+
+	// create link for mount/umount for autofs
+	ret = symlink("/bin/busybox", "/bin/mount");
+	ret += symlink("/bin/busybox", "/bin/umount");
+
+	// try to restart autofs
+	ret =  system("/bin/automount");
+	if (ret != 0)
+	{
+		my_printf("Error starting autofs\n");
 	}
 
 	// restart init process
@@ -1101,6 +1129,8 @@ int main(int argc, char *argv[])
 			// kill VMC
 			ret = system("pkill -f vmc.sh");
 			ret = system("pkill -f DBServer.py");
+			// stop autofs
+			ret = system("/etc/init.d/autofs stop");
 			// ignore return values, because the processes might not run
 		}
 
@@ -1110,7 +1140,7 @@ int main(int argc, char *argv[])
 		sync();
 		sleep(1);
 
-		set_step("init 1");
+		set_step("init 2");
 		if (!no_write && stop_e2_needed)
 		{
 			if (!daemonize())
