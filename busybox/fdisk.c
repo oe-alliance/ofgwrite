@@ -2836,12 +2836,14 @@ open_list_and_close(const char *device, int user_specified)
 	}
 
 	if (gb < 0) { /* no DOS signature */
+		// adapted for ofgwrite
 		//list_disk_geometry();
 		if (LABEL_IS_AIX)
 			goto ret;
 #if ENABLE_FEATURE_OSF_LABEL
 		if (bsd_trydev(device) < 0)
 #endif
+			// adapted for ofgwrite
 			//printf("Disk %s doesn't contain a valid "
 			//	"partition table\n", device);
 	} else {

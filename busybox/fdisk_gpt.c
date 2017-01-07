@@ -80,6 +80,7 @@ static void
 gpt_print_wide(uint16_t *s, int max_len)
 {
 	int i = 0;
+
 	while (i < max_len) {
 		if (*s == 0)
 			return;
@@ -93,6 +94,7 @@ gpt_list_table(int xtra UNUSED_PARAM)
 {
 	int i;
 	char numstr6[6];
+	// adapted for ofgwrite
 	/*smart_ulltoa5(total_number_of_sectors * sector_size, numstr6, " KMGTPEZY")[0] = '\0';
 	printf("Disk %s: %llu sectors, %s\n", disk_device,
 		(unsigned long long)total_number_of_sectors,
