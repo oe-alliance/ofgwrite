@@ -431,7 +431,7 @@ static sector_t bb_BLKGETSIZE_sectors(int fd)
 			 * we support can't record more than 32 bit
 			 * sector counts or offsets
 			 */
-			bb_error_msg("device has more than 2^32 sectors, can't use all of them");
+			//bb_error_msg("device has more than 2^32 sectors, can't use all of them");
 			v64 = (uint32_t)-1L;
 		}
 		return v64;
@@ -1434,7 +1434,8 @@ static int get_boot(void)
 #endif
 
 	get_geometry();
-	update_units();
+// adapted for ofgwrite
+	//update_units();
 
 #if ENABLE_FEATURE_SUN_LABEL
 	if (check_sun_label())
@@ -1449,8 +1450,11 @@ static int get_boot(void)
 		return 0;
 #endif
 #if ENABLE_FEATURE_GPT_LABEL
+// adapted for ofgwrite
 	if (check_gpt_label())
 		return 0;
+	else
+		return 1;
 #endif
 #if ENABLE_FEATURE_OSF_LABEL
 	if (check_osf_label()) {
@@ -2848,11 +2852,12 @@ open_list_and_close(const char *device, int user_specified)
 			//	"partition table\n", device);
 	} else {
 		list_table(0);
-#if ENABLE_FEATURE_FDISK_WRITABLE
-		if (!LABEL_IS_SUN && g_partitions > 4) {
-			delete_partition(ext_index);
-		}
-#endif
+// adapted for ofgwrite
+//#if ENABLE_FEATURE_FDISK_WRITABLE
+//		if (!LABEL_IS_SUN && g_partitions > 4) {
+//			delete_partition(ext_index);
+//		}
+//#endif
 	}
  ret:
 	close_dev_fd();
@@ -2962,6 +2967,8 @@ int fdisk_main(int argc UNUSED_PARAM, char **argv)
 	if (opt & OPT_l) {
 		nowarn = 1;
 #endif
+// adapted for ofgwrite
+		listing = 1;
 		if (*argv) {
 			listing = 1;
 			do {
