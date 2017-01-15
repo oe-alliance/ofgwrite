@@ -16,7 +16,7 @@ int FAST_FUNC remove_file(const char *path, int flags)
 	struct stat path_stat;
 
 	if (lstat(path, &path_stat) < 0) {
-		if (bb_errno != ENOENT) {
+		if (errno != ENOENT) {
 			bb_perror_msg("can't stat '%s'", path);
 			return -1;
 		}
