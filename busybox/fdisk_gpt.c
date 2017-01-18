@@ -109,12 +109,11 @@ gpt_list_table(int xtra UNUSED_PARAM)
 		(unsigned long long)SWAP_LE64(gpt_hdr->last_usable_lba));
 */
 	//puts("Number  Start (sector)    End (sector)  Size       Code  Name");
+	char partname[19];
 	char kernel_name[7];
 	char rootfs_name[7];
 	int found_kernel = 0;
 	int found_rootfs = 0;
-	int cnt_kernel_devs = 0;
-	int cnt_rootfs_devs = 0;
 	if (multiboot_partition != -1)
 	{
 		sprintf(kernel_name, "kernel%d", multiboot_partition);
@@ -139,14 +138,9 @@ gpt_list_table(int xtra UNUSED_PARAM)
 			gpt_print_wide(p->name, 18);
 			bb_putchar('\n');*/
 			// adapted for ofgwrite: ignore upper byte as we only need us ascii chars
-			char partname[19];
 			int k;
 			for (k = 0; k<19; k++)
 				partname[k] = (char)p->name[k];
-			if (strncmp(partname, "kernel", 6) == 0)
-				cnt_kernel_devs++;
-			if (strncmp(partname, "rootfs", 6) == 0)
-				cnt_rootfs_devs++;
 			if (strcmp(partname, kernel_name) == 0)
 			{
 				ext4_kernel_dev_found(disk_device, i+1);
@@ -159,25 +153,67 @@ gpt_list_table(int xtra UNUSED_PARAM)
 			}
 		}
 	}
-	if (found_kernel || found_rootfs || multiboot_partition != -1 || cnt_kernel_devs != 1 || cnt_rootfs_devs != 1)
+
+	// If kernel OR rootfs found, return. If one is missing, handle error later. Don't search for other partitions.
+	// If multiboot partition was specified, return also as user wanted to use a specific partition which was not found.
+	if (found_kernel || found_rootfs || multiboot_partition != -1)
 		return;
 
-	my_printf("No matching partition names are found. But we found 1 kernel and 1 rootfs partition starting with kernel/rootfs\n");
+	my_printf("No matching partition names are found. Use current kernel and rootfs devices\n");
 
-	// -> no kernel/rootfs device and no multiboot and only 1 kernel and 1 rootfs partition with wrong name is found
-	// -> use found kernel/rootfs device
-	// most likely it is hd51 with kernel1 and rootfs1 partitions
-	for (i = 0; i < n_parts; i++) {
-		gpt_partition *p = gpt_part(i);
+	// E.g. hd51 in single boot configuration with kernel1 and rootfs1 partitions
+	// or user hasn't specified multiboot partition on a multiboot box like hd51.
+	// In both cases use current used kernel and rootfs devices
+
+	// find partition name of current rootfs device
+	int part_num = -1;
+	if (sscanf(current_rootfs_device, "%*[a-z/]%*dp%d", &part_num) == EOF)
+		return;
+
+	// No partition number found. Device name is not as expected
+	if (part_num == -1)
+	{
+		my_printf("Error: Partition number not found. Device name: %s\n", current_rootfs_device);
+		return;
+	}
+
+	if (part_num <= n_parts)
+	{
+		gpt_partition *p = gpt_part(part_num - 1);
 		if (p->lba_start) {
-			char partname[19];
 			int k;
 			for (k = 0; k<19; k++)
 				partname[k] = (char)p->name[k];
-			if (strncmp(partname, kernel_name, 6) == 0)
+			// expecting names starting with "rootfs" and after that a number. So e.g. rootfs3
+			if (sscanf(partname, "%*[a-z]%d", &multiboot_partition) == EOF)
+				return;
+			my_printf("Using current multiboot partition %d\n", multiboot_partition);
+		}
+	}
+
+	if (multiboot_partition != -1)
+	{
+		sprintf(kernel_name, "kernel%d", multiboot_partition);
+		sprintf(rootfs_name, "rootfs%d", multiboot_partition);
+	}
+	else
+		return;
+
+	// now search for both partitions as we need to call both ext4_..._dev_found functions
+	for (i = 0; i < n_parts; i++) {
+		gpt_partition *p = gpt_part(i);
+		if (p->lba_start) {
+			int k;
+			for (k = 0; k<19; k++)
+				partname[k] = (char)p->name[k];
+			if (strcmp(partname, kernel_name) == 0)
+			{
 				ext4_kernel_dev_found(disk_device, i+1);
-			if (strncmp(partname, rootfs_name, 6) == 0)
+			}
+			if (strcmp(partname, rootfs_name) == 0)
+			{
 				ext4_rootfs_dev_found(disk_device, i+1);
+			}
 		}
 	}
 }

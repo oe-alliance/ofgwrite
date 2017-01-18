@@ -12,7 +12,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-const char ofgwrite_version[] = "3.7.5";
+const char ofgwrite_version[] = "3.8.0";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -873,7 +873,7 @@ void determineCurrentUsedRootfs()
 	char dev [1000];
 	char* pos;
 	char* pos2;
-	memset(dev, 0, sizeof(dev));
+	memset(current_rootfs_device, 0, sizeof(current_rootfs_device));
 
 	if (fgets(line, 1000, f) != NULL)
 	{
@@ -883,25 +883,22 @@ void determineCurrentUsedRootfs()
 			pos2 = strstr(pos, " ");
 			if (pos2)
 			{
-				strncpy(dev, pos + 5, pos2-pos-5);
+				strncpy(current_rootfs_device, pos + 5, pos2-pos-5);
 			}
 			else
 			{
-				strcpy(dev, pos + 5);
+				strcpy(current_rootfs_device, pos + 5);
 			}
 		}
 	}
-	my_printf("Current rootfs is: %s\n", dev);
-	if (strcmp(rootfs_device, dev) != 0)
-	{
-		stop_e2_needed = 0;
-		my_printf("Flashing currently not running image\n");
-	}
+	my_printf("Current rootfs is: %s\n", current_rootfs_device);
 	fclose(f);
 }
 
 void find_kernel_rootfs_device()
 {
+	determineCurrentUsedRootfs();
+
 	// call fdisk -l
 	optind = 0; // reset getopt_long
 	char* argv[] = {
@@ -927,7 +924,11 @@ void find_kernel_rootfs_device()
 		return;
 	}
 
-	determineCurrentUsedRootfs();
+	if (strcmp(rootfs_device, current_rootfs_device) != 0)
+	{
+		stop_e2_needed = 0;
+		my_printf("Flashing currently not running image\n");
+	}
 }
 
 // Checks whether kernel and rootfs device is bigger than the kernel and rootfs file
