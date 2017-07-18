@@ -3,4 +3,4 @@
 mkdir /newroot
 mount -t tmpfs tmpfs /newroot
 cp /usr/bin/ofgwrite_bin /newroot/
-/newroot/ofgwrite_bin $*
+/newroot/ofgwrite_bin "$@"
