@@ -11,8 +11,9 @@
 #include <syslog.h>
 #include <sys/mount.h>
 #include <unistd.h>
+#include <errno.h>
 
-const char ofgwrite_version[] = "3.8.0";
+const char ofgwrite_version[] = "3.9.0";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -851,6 +852,14 @@ void ext4_kernel_dev_found(const char* dev, int partition_number)
 
 void ext4_rootfs_dev_found(const char* dev, int partition_number)
 {
+	// Check whether rootfs is on the same device as current used rootfs
+	sprintf(rootfs_device, "%sp", dev);
+	if (strncmp(rootfs_device, current_rootfs_device, strlen(rootfs_device)) != 0)
+	{
+		my_printf("Rootfs(%s) is on different device than current rootfs(%s). Maybe wrong device selected. -> Aborting\n", dev, current_rootfs_device);
+		return;
+	}
+
 	found_rootfs_device = 1;
 	sprintf(rootfs_device, "%sp%d", dev, partition_number);
 	my_printf("Using %s as rootfs device\n", rootfs_device);
@@ -1166,7 +1175,21 @@ int main(int argc, char *argv[])
 			ret = mount(rootfs_device, "/oldroot_bind/", "ext4", 0, NULL);
 			if (!ret)
 				my_printf("Mount to /oldroot_bind/ successful\n");
-			else
+			else if (errno == EINVAL)
+			{
+				// most likely partition is not formatted -> format it
+				char mkfs_cmd[100];
+				sprintf(mkfs_cmd, "mkfs.ext4 %s", rootfs_device);
+				my_printf("Formatting %s\n", rootfs_device);
+				ret = system(mkfs_cmd);
+				if (!ret)
+				{ // try to mount it again
+					ret = mount(rootfs_device, "/oldroot_bind/", "ext4", 0, NULL);
+					if (!ret)
+						my_printf("Mount to /oldroot_bind/ successful\n");
+				}
+			}
+			if (ret)
 			{
 				my_printf("Error mounting root! Abort flashing.\n");
 				set_error_text1("Error mounting root! Abort flashing.");
