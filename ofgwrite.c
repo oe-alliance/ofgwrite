@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "3.9.0";
+const char ofgwrite_version[] = "3.9.1";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -1194,6 +1194,7 @@ int main(int argc, char *argv[])
 				my_printf("Error mounting root! Abort flashing.\n");
 				set_error_text1("Error mounting root! Abort flashing.");
 				sleep(30);
+				close_framebuffer();
 				return EXIT_FAILURE;
 			}
 		}
@@ -1212,6 +1213,7 @@ int main(int argc, char *argv[])
 				sleep(60);
 				if (stop_e2_needed)
 					reboot(LINUX_REBOOT_CMD_RESTART);
+				close_framebuffer();
 				return EXIT_FAILURE;
 			}
 			sync();
@@ -1227,6 +1229,7 @@ int main(int argc, char *argv[])
 			sleep(60);
 			if (stop_e2_needed)
 				reboot(LINUX_REBOOT_CMD_RESTART);
+			close_framebuffer();
 			return EXIT_FAILURE;
 		}
 

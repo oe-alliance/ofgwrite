@@ -156,6 +156,9 @@ void paint_progressbars()
 
 void close_framebuffer()
 {
+	// hide all old osd content
+	paint_box(0, 0, g_screeninfo_var.xres, g_screeninfo_var.yres, TRANS);
+
 	if (g_lfb)
 	{
 		msync(g_lfb, g_screeninfo_fix.smem_len, MS_SYNC);
