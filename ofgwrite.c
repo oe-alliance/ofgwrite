@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "3.9.1";
+const char ofgwrite_version[] = "3.9.2";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -1193,7 +1193,7 @@ int main(int argc, char *argv[])
 			{
 				my_printf("Error mounting root! Abort flashing.\n");
 				set_error_text1("Error mounting root! Abort flashing.");
-				sleep(30);
+				sleep(3);
 				close_framebuffer();
 				return EXIT_FAILURE;
 			}
@@ -1210,9 +1210,12 @@ int main(int argc, char *argv[])
 				my_printf("Error flashing kernel. System won't boot. Please flash backup! Starting E2 in 60 seconds\n");
 				set_error_text1("Error flashing kernel. System won't boot!");
 				set_error_text2("Please flash backup! Starting E2 in 60 sec");
-				sleep(60);
 				if (stop_e2_needed)
+				{
+					sleep(60);
 					reboot(LINUX_REBOOT_CMD_RESTART);
+				}
+				sleep(3);
 				close_framebuffer();
 				return EXIT_FAILURE;
 			}
@@ -1226,9 +1229,12 @@ int main(int argc, char *argv[])
 			my_printf("Error flashing rootfs! System won't boot. Please flash backup! System will reboot in 60 seconds\n");
 			set_error_text1("Error flashing rootfs. System won't boot!");
 			set_error_text2("Please flash backup! Rebooting in 60 sec");
-			sleep(60);
 			if (stop_e2_needed)
+			{
+				sleep(60);
 				reboot(LINUX_REBOOT_CMD_RESTART);
+			}
+			sleep(3);
 			close_framebuffer();
 			return EXIT_FAILURE;
 		}
