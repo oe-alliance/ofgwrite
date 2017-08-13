@@ -1,0 +1,4 @@
+*.o
+*.a
+ofgwrite_bin
+build
