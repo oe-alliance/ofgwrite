@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "3.9.3";
+const char ofgwrite_version[] = "3.9.4";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -1242,7 +1242,11 @@ int main(int argc, char *argv[])
 
 		my_printf("Successfully flashed rootfs! Rebooting in 3 seconds...\n");
 		if (!stop_e2_needed)
+		{
+			ret = umount("/oldroot_bind/");
+			ret = umount("/newroot/");
 			set_step("Successfully flashed!");
+		}
 		else
 			set_step("Successfully flashed! Rebooting in 3 seconds");
 		fflush(stdout);

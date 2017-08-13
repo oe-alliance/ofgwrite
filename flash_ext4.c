@@ -129,5 +129,6 @@ int flash_ext4_rootfs(char* filename, int quiet, int no_write)
 		return 0;
 	}
 	sync();
+	ret = chdir("/"); // needed to be able to umount filesystem
 	return 1;
 }
