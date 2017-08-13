@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "3.9.2";
+const char ofgwrite_version[] = "3.9.3";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -235,8 +235,9 @@ int read_args(int argc, char *argv[])
 		if (!find_image_files(argv[optind]))
 			return 0;
 
-		if (optind == 1) // only image dir was specified -> set defaults
+		if (flash_kernel == 0 && flash_rootfs== 0) // set defaults
 		{
+			my_printf("Setting default parameter: Flashing kernel and rootfs\n");
 			flash_kernel = 1;
 			flash_rootfs = 1;
 		}
