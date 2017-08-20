@@ -249,12 +249,13 @@ static smallint scan_recursive(const char *path)
 					char* ln = xmalloc_readlink(subpath);
 					if (ln != NULL)
 					{
-						// change for ofgwrite: Don't kill VU+ specific processes
+						// change for ofgwrite: Don't kill VU+ and GB specific processes
 						if (strcmp(ln, "/oldroot/usr/bin/dvb_server") == 0
 							|| strcmp(ln, "/oldroot/usr/bin/init_client") == 0
-							|| strcmp(ln, "/oldroot/usr/bin/ntfs-3g") == 0)
+							|| strcmp(ln, "/oldroot/usr/bin/ntfs-3g") == 0
+							|| strcmp(ln, "/oldroot/usr/share/platform/dvb_init") == 0)
 						{
-							my_printf("found vu or ntfs process %s -> don't kill\n", ln);
+							my_printf("found vu or gb or ntfs process %s -> don't kill\n", ln);
 							retval = 0;
 							stop_scan=1;
 						}

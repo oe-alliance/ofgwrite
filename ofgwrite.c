@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "3.9.5";
+const char ofgwrite_version[] = "3.9.6";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
