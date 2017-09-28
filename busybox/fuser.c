@@ -253,9 +253,10 @@ static smallint scan_recursive(const char *path)
 						if (strcmp(ln, "/oldroot/usr/bin/dvb_server") == 0
 							|| strcmp(ln, "/oldroot/usr/bin/init_client") == 0
 							|| strcmp(ln, "/oldroot/usr/bin/ntfs-3g") == 0
-							|| strcmp(ln, "/oldroot/usr/share/platform/dvb_init") == 0)
+							|| strcmp(ln, "/oldroot/usr/share/platform/dvb_init") == 0
+							|| strcmp(ln, "/oldroot/usr/bin/nxserver") == 0)
 						{
-							my_printf("found vu or gb or ntfs process %s -> don't kill\n", ln);
+							my_printf("found vu or gb or octagon or ntfs process %s -> don't kill\n", ln);
 							retval = 0;
 							stop_scan=1;
 						}
