@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "3.9.7";
+const char ofgwrite_version[] = "3.9.8";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -21,15 +21,15 @@ int quiet        = 0;
 int show_help    = 0;
 int found_kernel_device = 0;
 int found_rootfs_device = 0;
-int user_mtd_kernel = 0;
-int user_mtd_rootfs = 0;
+int user_kernel = 0;
+int user_rootfs = 0;
 int newroot_mounted = 0;
 char kernel_filename[1000];
 char kernel_device[1000];
-char kernel_mtd_device_arg[1000];
+char kernel_device_arg[1000];
 char rootfs_filename[1000];
 char rootfs_device[1000];
-char rootfs_mtd_device_arg[1000];
+char rootfs_device_arg[1000];
 char rootfs_ubi_device[1000];
 enum RootfsTypeEnum rootfs_type;
 char media_mounts[30][500];
@@ -71,8 +71,10 @@ void printUsage()
 	my_printf("Options:\n");
 	my_printf("   -k --kernel           flash kernel with automatic device recognition(default)\n");
 	my_printf("   -kmtdx --kernel=mtdx  use mtdx device for kernel flashing\n");
+	my_printf("   -kmmcblkxpx --kernel=mmcblkxpx  use mmcblkxpx device for kernel flashing\n");
 	my_printf("   -r --rootfs           flash rootfs with automatic device recognition(default)\n");
 	my_printf("   -rmtdy --rootfs=mtdy  use mtdy device for rootfs flashing\n");
+	my_printf("   -rmmcblkxpx --rootfs=mmcblkxpx  use mmcblkxpx device for rootfs flashing\n");
 	my_printf("   -mx --multi=x         flash multiboot partition x (x= 1, 2, 3,...). Only supported by some boxes.\n");
 	my_printf("   -n --nowrite          show only found image and mtd partitions (no write)\n");
 	my_printf("   -q --quiet            show less output\n");
@@ -168,11 +170,11 @@ int read_args(int argc, char *argv[])
 				flash_kernel = 1;
 				if (optarg)
 				{
-					if (!strncmp(optarg, "mtd", 3))
+					if ((!strncmp(optarg, "mtd", 3)) || (!strncmp(optarg, "mmcblk", 6)))
 					{
 						my_printf("Flashing kernel with arg %s\n", optarg);
-						strcpy(kernel_mtd_device_arg, optarg);
-						user_mtd_kernel = 1;
+						strcpy(kernel_device_arg, optarg);
+						user_kernel = 1;
 					}
 				}
 				else
@@ -182,11 +184,11 @@ int read_args(int argc, char *argv[])
 				flash_rootfs = 1;
 				if (optarg)
 				{
-					if (!strncmp(optarg, "mtd", 3))
+					if ((!strncmp(optarg, "mtd", 3)) || (!strncmp(optarg, "mmcblk", 6)))
 					{
 						my_printf("Flashing rootfs with arg %s\n", optarg);
-						strcpy(rootfs_mtd_device_arg, optarg);
-						user_mtd_rootfs = 1;
+						strcpy(rootfs_device_arg, optarg);
+						user_rootfs = 1;
 					}
 				}
 				else
@@ -302,10 +304,10 @@ int read_mtd_file()
 			if (dev[strlen(dev)-1] == ':') // cut ':'
 				dev[strlen(dev)-1] = '\0';
 			// user selected kernel
-			if (user_mtd_kernel && !strcmp(dev, kernel_mtd_device_arg))
+			if (user_kernel && !strcmp(dev, kernel_device_arg))
 			{
 				strcpy(&kernel_device[0], dev_path);
-				strcpy(&kernel_device[5], kernel_mtd_device_arg);
+				strcpy(&kernel_device[5], kernel_device_arg);
 				if (kernel_file_stat.st_size <= devsize)
 				{
 					if ((strcmp(name, "\"kernel\"") == 0
@@ -331,10 +333,10 @@ int read_mtd_file()
 				}
 			}
 			// user selected rootfs
-			else if (user_mtd_rootfs && !strcmp(dev, rootfs_mtd_device_arg))
+			else if (user_rootfs && !strcmp(dev, rootfs_device_arg))
 			{
 				strcpy(&rootfs_device[0], dev_path);
-				strcpy(&rootfs_device[5], rootfs_mtd_device_arg);
+				strcpy(&rootfs_device[5], rootfs_device_arg);
 				if (rootfs_file_stat.st_size <= devsize
 					&& strcmp(esize, "0001f000") != 0)
 				{
@@ -365,7 +367,7 @@ int read_mtd_file()
 				}
 			}
 			// auto kernel
-			else if (!user_mtd_kernel
+			else if (!user_kernel
 					&& (strcmp(name, "\"kernel\"") == 0
 						|| strcmp(name, "\"nkernel\"") == 0))
 			{
@@ -388,7 +390,7 @@ int read_mtd_file()
 					my_printf("  <-  Error: Kernel file is bigger than device size!!\n");
 			}
 			// auto rootfs
-			else if (!user_mtd_rootfs && strcmp(name, "\"rootfs\"") == 0)
+			else if (!user_rootfs && strcmp(name, "\"rootfs\"") == 0)
 			{
 				if (found_rootfs_device)
 				{
@@ -921,6 +923,22 @@ void find_kernel_rootfs_device()
 	my_printf("Execute: fdisk -l\n");
 	if (fdisk_main(argc, argv) != 0)
 		return;
+
+	// force user kernel
+	if (user_kernel)
+	{
+		found_kernel_device = 1;
+		sprintf(kernel_device, "/dev/%s", kernel_device_arg);
+		my_printf("Using %s as kernel device\n", kernel_device);
+	}
+
+	// force user rootfs
+	if (user_rootfs)
+	{
+		found_rootfs_device = 1;
+		sprintf(rootfs_device, "/dev/%s", rootfs_device_arg);
+		my_printf("Using %s as rootfs device\n", rootfs_device);
+	}
 
 	if (!found_kernel_device)
 	{
