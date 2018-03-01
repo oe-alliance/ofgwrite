@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "3.9.8";
+const char ofgwrite_version[] = "3.9.9";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -132,6 +132,7 @@ int find_image_files(char* p)
 			 || strcmp(entry->d_name, "oe_rootfs.bin") == 0			// DAGS boxes
 			 || strcmp(entry->d_name, "e2jffs2.img") == 0			// Spark boxes
 			 || strcmp(entry->d_name, "rootfs.tar.bz2") == 0)		// solo4k
+			 || strcmp(entry->d_name, "rootfs.ubi") == 0)			// Zgemma H9
 			{
 				strcpy(rootfs_filename, path);
 				strcpy(&rootfs_filename[strlen(path)], entry->d_name);
