@@ -131,7 +131,7 @@ int find_image_files(char* p)
 			 || strcmp(entry->d_name, "root_cfe_auto.jffs2") == 0	// other VU boxes
 			 || strcmp(entry->d_name, "oe_rootfs.bin") == 0			// DAGS boxes
 			 || strcmp(entry->d_name, "e2jffs2.img") == 0			// Spark boxes
-			 || strcmp(entry->d_name, "rootfs.tar.bz2") == 0)		// solo4k
+			 || strcmp(entry->d_name, "rootfs.tar.bz2") == 0		// solo4k
 			 || strcmp(entry->d_name, "rootfs.ubi") == 0)			// Zgemma H9
 			{
 				strcpy(rootfs_filename, path);
