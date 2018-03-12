@@ -13,10 +13,11 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "3.9.9";
+const char ofgwrite_version[] = "4.0.0";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
+int force        = 0;
 int quiet        = 0;
 int show_help    = 0;
 int found_kernel_device = 0;
@@ -77,6 +78,7 @@ void printUsage()
 	my_printf("   -rmmcblkxpx --rootfs=mmcblkxpx  use mmcblkxpx device for rootfs flashing\n");
 	my_printf("   -mx --multi=x         flash multiboot partition x (x= 1, 2, 3,...). Only supported by some boxes.\n");
 	my_printf("   -n --nowrite          show only found image and mtd partitions (no write)\n");
+	my_printf("   -f --force            force kill e2\n");
 	my_printf("   -q --quiet            show less output\n");
 	my_printf("   -h --help             show help\n");
 }
@@ -151,12 +153,13 @@ int read_args(int argc, char *argv[])
 {
 	int option_index = 0;
 	int opt;
-	static const char *short_options = "k::r::nm:qh";
+	static const char *short_options = "k::r::nm:fqh";
 	static const struct option long_options[] = {
 												{"kernel" , optional_argument, NULL, 'k'},
 												{"rootfs" , optional_argument, NULL, 'r'},
 												{"nowrite", no_argument      , NULL, 'n'},
 												{"multi"  , required_argument, NULL, 'm'},
+												{"force"  , optional_argument, NULL, 'f'},
 												{"quiet"  , no_argument      , NULL, 'q'},
 												{"help"   , no_argument      , NULL, 'h'},
 												{NULL     , no_argument      , NULL,  0} };
@@ -211,6 +214,9 @@ int read_args(int argc, char *argv[])
 				break;
 			case 'n':
 				no_write = 1;
+				break;
+			case 'f':
+				force = 1;
 				break;
 			case 'q':
 				quiet = 1;
@@ -953,7 +959,7 @@ void find_kernel_rootfs_device()
 		return;
 	}
 
-	if (strcmp(rootfs_device, current_rootfs_device) != 0)
+	if (strcmp(rootfs_device, current_rootfs_device) != 0 && !force)
 	{
 		stop_e2_needed = 0;
 		my_printf("Flashing currently not running image\n");
