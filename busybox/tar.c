@@ -147,6 +147,8 @@
 #include <fnmatch.h>
 #include "libbb.h"
 #include "bb_archive.h"
+// adapted for ofgwrite
+#include "../ofgwrite.h"
 /* FIXME: Stop using this non-standard feature */
 #ifndef FNM_LEADING_DIR
 # define FNM_LEADING_DIR 0
@@ -949,6 +951,7 @@ static const char tar_longopts[] ALIGN1 =
 int tar_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int tar_main(int argc UNUSED_PARAM, char **argv)
 {
+	die_func = &handle_busybox_fatal_error;
 	archive_handle_t *tar_handle;
 	char *base_dir = NULL;
 	const char *tar_filename = "-";

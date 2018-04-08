@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "4.0.0";
+const char ofgwrite_version[] = "4.1.0";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -1014,6 +1014,21 @@ int check_device_size()
 	}
 
 	return 1;
+}
+
+void handle_busybox_fatal_error()
+{
+	my_printf("Error flashing rootfs! System won't boot. Please flash backup! System will reboot in 60 seconds\n");
+	set_error_text1("Error untar rootfs. System won't boot!");
+	set_error_text2("Please flash backup! Rebooting in 60 sec");
+	if (stop_e2_needed)
+	{
+		sleep(60);
+		reboot(LINUX_REBOOT_CMD_RESTART);
+	}
+	sleep(30);
+	close_framebuffer();
+	return EXIT_FAILURE;
 }
 
 int main(int argc, char *argv[])
