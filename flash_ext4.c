@@ -115,7 +115,7 @@ int flash_ext4_rootfs(char* filename, int quiet, int no_write)
 {
 	int ret;
 	// instead of creating new filesystem just delete whole content
-	set_step("deleting ext4 rootfs");
+	set_step("Deleting ext4 rootfs");
 	if (!no_write)
 	{
 		ret = rm_rootfs("/oldroot_bind", quiet, no_write); // ignore return value as it always fails, because oldroot_bind cannot be removed
