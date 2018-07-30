@@ -174,7 +174,7 @@ int read_args(int argc, char *argv[])
 				flash_kernel = 1;
 				if (optarg)
 				{
-					if ((!strncmp(optarg, "mtd", 3)) || (!strncmp(optarg, "mmcblk", 6)))
+					if ((!strncmp(optarg, "mtd", 3)) || (!strncmp(optarg, "mmcblk", 6)) || (!strncmp(optarg, "sd", 2)))
 					{
 						my_printf("Flashing kernel with arg %s\n", optarg);
 						strcpy(kernel_device_arg, optarg);
@@ -188,7 +188,7 @@ int read_args(int argc, char *argv[])
 				flash_rootfs = 1;
 				if (optarg)
 				{
-					if ((!strncmp(optarg, "mtd", 3)) || (!strncmp(optarg, "mmcblk", 6)))
+					if ((!strncmp(optarg, "mtd", 3)) || (!strncmp(optarg, "mmcblk", 6)) || (!strncmp(optarg, "sd", 2)))
 					{
 						my_printf("Flashing rootfs with arg %s\n", optarg);
 						strcpy(rootfs_device_arg, optarg);
