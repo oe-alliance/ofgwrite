@@ -688,7 +688,6 @@ int umount_rootfs()
 		ret += system("cp -arf /bin/sh*          /newroot/bin");
 		ret += system("cp -arf /bin/bash*        /newroot/bin");
 		ret += system("cp -arf /sbin/init*       /newroot/sbin");
-		ret += system("cp -arf /lib64/libcrypt*    /newroot/lib64");
 		ret += system("cp -arf /lib64/libc*        /newroot/lib64");
 		ret += system("cp -arf /lib64/ld*          /newroot/lib64");
 		ret += system("cp -arf /lib64/libtinfo*    /newroot/lib64");
@@ -700,7 +699,6 @@ int umount_rootfs()
 		ret += system("cp -arf /bin/sh*          /newroot/bin");
 		ret += system("cp -arf /bin/bash*        /newroot/bin");
 		ret += system("cp -arf /sbin/init*       /newroot/sbin");
-		ret += system("cp -arf /lib/libcrypt*    /newroot/lib");
 		ret += system("cp -arf /lib/libc*        /newroot/lib");
 		ret += system("cp -arf /lib/ld*          /newroot/lib");
 		ret += system("cp -arf /lib/libtinfo*    /newroot/lib");
@@ -711,6 +709,34 @@ int umount_rootfs()
 	{
 		my_printf("Error copying binary and libs\n");
 		return 0;
+	}
+
+	// libcrypt is moved from /lib to /usr/libX in new OE versions
+	if (multilib)
+	{
+		ret = system("cp -arf /lib64/libcrypt*    /newroot/lib64");
+		if (ret != 0)
+		{
+			ret = system("cp -arf /usr/lib64/libcrypt*    /newroot/usr/lib64");
+			if (ret != 0)
+			{
+				my_printf("Error copying libcrypto lib\n");
+				return 0;
+			}
+		}
+	}
+	else
+	{
+		ret = system("cp -arf /lib/libcrypt*    /newroot/lib");
+		if (ret != 0)
+		{
+			ret = system("cp -arf /usr/lib/libcrypt*    /newroot/usr/lib");
+			if (ret != 0)
+			{
+				my_printf("Error copying libcrypto lib\n");
+				return 0;
+			}
+		}
 	}
 
 	// copy for automount ignore errors as autofs is maybe not installed
