@@ -670,9 +670,9 @@ int umount_rootfs()
 
 	if (multilib)
 	{
-	ret += mkdir("/newroot/lib64", 777);
-	ret += mkdir("/newroot/usr/lib64", 777);
-	ret += mkdir("/newroot/usr/lib64/autofs", 777);
+		ret += mkdir("/newroot/lib64", 777);
+		ret += mkdir("/newroot/usr/lib64", 777);
+		ret += mkdir("/newroot/usr/lib64/autofs", 777);
 	}
 
 	if (ret != 0)
@@ -681,31 +681,30 @@ int umount_rootfs()
 		return 0;
 	}
 
+	// we need init and libs to be able to exec init u later
 	if (multilib)
 	{
-	// we need init and libs to be able to exec init u later
-	ret =  system("cp -arf /bin/busybox*     /newroot/bin");
-	ret += system("cp -arf /bin/sh*          /newroot/bin");
-	ret += system("cp -arf /bin/bash*        /newroot/bin");
-	ret += system("cp -arf /sbin/init*       /newroot/sbin");
-	ret += system("cp -arf /lib64/libcrypt*    /newroot/lib64");
-	ret += system("cp -arf /lib64/libc*        /newroot/lib64");
-	ret += system("cp -arf /lib64/ld*          /newroot/lib64");
-	ret += system("cp -arf /lib64/libtinfo*    /newroot/lib64");
-	ret += system("cp -arf /lib64/libdl*       /newroot/lib64");
+		ret =  system("cp -arf /bin/busybox*     /newroot/bin");
+		ret += system("cp -arf /bin/sh*          /newroot/bin");
+		ret += system("cp -arf /bin/bash*        /newroot/bin");
+		ret += system("cp -arf /sbin/init*       /newroot/sbin");
+		ret += system("cp -arf /lib64/libcrypt*    /newroot/lib64");
+		ret += system("cp -arf /lib64/libc*        /newroot/lib64");
+		ret += system("cp -arf /lib64/ld*          /newroot/lib64");
+		ret += system("cp -arf /lib64/libtinfo*    /newroot/lib64");
+		ret += system("cp -arf /lib64/libdl*       /newroot/lib64");
 	}
 	else
 	{
-	// we need init and libs to be able to exec init u later
-	ret =  system("cp -arf /bin/busybox*     /newroot/bin");
-	ret += system("cp -arf /bin/sh*          /newroot/bin");
-	ret += system("cp -arf /bin/bash*        /newroot/bin");
-	ret += system("cp -arf /sbin/init*       /newroot/sbin");
-	ret += system("cp -arf /lib/libcrypt*    /newroot/lib");
-	ret += system("cp -arf /lib/libc*        /newroot/lib");
-	ret += system("cp -arf /lib/ld*          /newroot/lib");
-	ret += system("cp -arf /lib/libtinfo*    /newroot/lib");
-	ret += system("cp -arf /lib/libdl*       /newroot/lib");
+		ret =  system("cp -arf /bin/busybox*     /newroot/bin");
+		ret += system("cp -arf /bin/sh*          /newroot/bin");
+		ret += system("cp -arf /bin/bash*        /newroot/bin");
+		ret += system("cp -arf /sbin/init*       /newroot/sbin");
+		ret += system("cp -arf /lib/libcrypt*    /newroot/lib");
+		ret += system("cp -arf /lib/libc*        /newroot/lib");
+		ret += system("cp -arf /lib/ld*          /newroot/lib");
+		ret += system("cp -arf /lib/libtinfo*    /newroot/lib");
+		ret += system("cp -arf /lib/libdl*       /newroot/lib");
 	}
 
 	if (ret != 0)
@@ -714,33 +713,32 @@ int umount_rootfs()
 		return 0;
 	}
 
+	// copy for automount ignore errors as autofs is maybe not installed
 	if (multilib)
 	{
-	// copy for automount ignore errors as autofs is maybe not installed
-	ret = system("cp -arf /usr/sbin/autom*  /newroot/bin");
-	ret += system("cp -arf /etc/auto*        /newroot/etc");
-	ret += system("cp -arf /lib64/libpthread*  /newroot/lib64");
-	ret += system("cp -arf /lib64/libnss*      /newroot/lib64");
-	ret += system("cp -arf /lib64/libnsl*      /newroot/lib64");
-	ret += system("cp -arf /lib64/libresolv*   /newroot/lib64");
-	ret += system("cp -arf /usr/lib64/libtirp* /newroot/usr/lib64");
-	ret += system("cp -arf /usr/lib64/autofs/* /newroot/usr/lib64/autofs");
-	ret += system("cp -arf /etc/nsswitch*    /newroot/etc");
-	ret += system("cp -arf /etc/resolv*      /newroot/etc");
+		ret = system("cp -arf /usr/sbin/autom*  /newroot/bin");
+		ret += system("cp -arf /etc/auto*        /newroot/etc");
+		ret += system("cp -arf /lib64/libpthread*  /newroot/lib64");
+		ret += system("cp -arf /lib64/libnss*      /newroot/lib64");
+		ret += system("cp -arf /lib64/libnsl*      /newroot/lib64");
+		ret += system("cp -arf /lib64/libresolv*   /newroot/lib64");
+		ret += system("cp -arf /usr/lib64/libtirp* /newroot/usr/lib64");
+		ret += system("cp -arf /usr/lib64/autofs/* /newroot/usr/lib64/autofs");
+		ret += system("cp -arf /etc/nsswitch*    /newroot/etc");
+		ret += system("cp -arf /etc/resolv*      /newroot/etc");
 	}
 	else
 	{
-	// copy for automount ignore errors as autofs is maybe not installed
-	ret = system("cp -arf /usr/sbin/autom*  /newroot/bin");
-	ret += system("cp -arf /etc/auto*        /newroot/etc");
-	ret += system("cp -arf /lib/libpthread*  /newroot/lib");
-	ret += system("cp -arf /lib/libnss*      /newroot/lib");
-	ret += system("cp -arf /lib/libnsl*      /newroot/lib");
-	ret += system("cp -arf /lib/libresolv*   /newroot/lib");
-	ret += system("cp -arf /usr/lib/libtirp* /newroot/usr/lib");
-	ret += system("cp -arf /usr/lib/autofs/* /newroot/usr/lib/autofs");
-	ret += system("cp -arf /etc/nsswitch*    /newroot/etc");
-	ret += system("cp -arf /etc/resolv*      /newroot/etc");
+		ret = system("cp -arf /usr/sbin/autom*  /newroot/bin");
+		ret += system("cp -arf /etc/auto*        /newroot/etc");
+		ret += system("cp -arf /lib/libpthread*  /newroot/lib");
+		ret += system("cp -arf /lib/libnss*      /newroot/lib");
+		ret += system("cp -arf /lib/libnsl*      /newroot/lib");
+		ret += system("cp -arf /lib/libresolv*   /newroot/lib");
+		ret += system("cp -arf /usr/lib/libtirp* /newroot/usr/lib");
+		ret += system("cp -arf /usr/lib/autofs/* /newroot/usr/lib/autofs");
+		ret += system("cp -arf /etc/nsswitch*    /newroot/etc");
+		ret += system("cp -arf /etc/resolv*      /newroot/etc");
 	}
 
 	// Switch to user mode 1
