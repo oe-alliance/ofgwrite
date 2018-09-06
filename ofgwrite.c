@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "4.1.1";
+const char ofgwrite_version[] = "4.1.2";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -637,6 +637,14 @@ int daemonize()
 
 int umount_rootfs()
 {
+	DIR *dir;
+	int multilib = 1;
+
+	if ((dir = opendir("/lib64")) == NULL)
+	{
+		multilib = 0;
+	}
+
 	int ret = 0;
 	my_printf("start umount_rootfs\n");
 	// the start script creates /newroot dir and mount tmpfs on it
@@ -659,12 +667,35 @@ int umount_rootfs()
 	ret += mkdir("/newroot/usr/lib/autofs", 777);
 	ret += mkdir("/newroot/var", 777);
 	ret += mkdir("/newroot/var/volatile", 777);
+
+	if (multilib)
+	{
+	ret += mkdir("/newroot/lib64", 777);
+	ret += mkdir("/newroot/usr/lib64", 777);
+	ret += mkdir("/newroot/usr/lib64/autofs", 777);
+	}
+
 	if (ret != 0)
 	{
 		my_printf("Error creating necessary directories\n");
 		return 0;
 	}
 
+	if (multilib)
+	{
+	// we need init and libs to be able to exec init u later
+	ret =  system("cp -arf /bin/busybox*     /newroot/bin");
+	ret += system("cp -arf /bin/sh*          /newroot/bin");
+	ret += system("cp -arf /bin/bash*        /newroot/bin");
+	ret += system("cp -arf /sbin/init*       /newroot/sbin");
+	ret += system("cp -arf /lib64/libcrypt*    /newroot/lib64");
+	ret += system("cp -arf /lib64/libc*        /newroot/lib64");
+	ret += system("cp -arf /lib64/ld*          /newroot/lib64");
+	ret += system("cp -arf /lib64/libtinfo*    /newroot/lib64");
+	ret += system("cp -arf /lib64/libdl*       /newroot/lib64");
+	}
+	else
+	{
 	// we need init and libs to be able to exec init u later
 	ret =  system("cp -arf /bin/busybox*     /newroot/bin");
 	ret += system("cp -arf /bin/sh*          /newroot/bin");
@@ -675,6 +706,7 @@ int umount_rootfs()
 	ret += system("cp -arf /lib/ld*          /newroot/lib");
 	ret += system("cp -arf /lib/libtinfo*    /newroot/lib");
 	ret += system("cp -arf /lib/libdl*       /newroot/lib");
+	}
 
 	if (ret != 0)
 	{
@@ -682,6 +714,22 @@ int umount_rootfs()
 		return 0;
 	}
 
+	if (multilib)
+	{
+	// copy for automount ignore errors as autofs is maybe not installed
+	ret = system("cp -arf /usr/sbin/autom*  /newroot/bin");
+	ret += system("cp -arf /etc/auto*        /newroot/etc");
+	ret += system("cp -arf /lib64/libpthread*  /newroot/lib64");
+	ret += system("cp -arf /lib64/libnss*      /newroot/lib64");
+	ret += system("cp -arf /lib64/libnsl*      /newroot/lib64");
+	ret += system("cp -arf /lib64/libresolv*   /newroot/lib64");
+	ret += system("cp -arf /usr/lib64/libtirp* /newroot/usr/lib64");
+	ret += system("cp -arf /usr/lib64/autofs/* /newroot/usr/lib64/autofs");
+	ret += system("cp -arf /etc/nsswitch*    /newroot/etc");
+	ret += system("cp -arf /etc/resolv*      /newroot/etc");
+	}
+	else
+	{
 	// copy for automount ignore errors as autofs is maybe not installed
 	ret = system("cp -arf /usr/sbin/autom*  /newroot/bin");
 	ret += system("cp -arf /etc/auto*        /newroot/etc");
@@ -693,6 +741,7 @@ int umount_rootfs()
 	ret += system("cp -arf /usr/lib/autofs/* /newroot/usr/lib/autofs");
 	ret += system("cp -arf /etc/nsswitch*    /newroot/etc");
 	ret += system("cp -arf /etc/resolv*      /newroot/etc");
+	}
 
 	// Switch to user mode 1
 	my_printf("Switching to user mode 2\n");
