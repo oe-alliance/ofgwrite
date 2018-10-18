@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "4.1.2";
+const char ofgwrite_version[] = "4.1.3";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -635,7 +635,7 @@ int daemonize()
 	return 1;
 }
 
-int umount_rootfs()
+int umount_rootfs(int steps)
 {
 	DIR *dir;
 	int multilib = 1;
@@ -788,6 +788,11 @@ int umount_rootfs()
 		ret = system("init 3");
 		return 0;
 	}
+
+	// some boxes don't allow to open framebuffer while e2 is running
+	// reopen framebuffer to show the GUI
+	close_framebuffer();
+	init_framebuffer(steps);
 	show_main_window(1, ofgwrite_version);
 	set_overall_text("Flashing image");
 	set_step_without_incr("Wait until E2 is stopped");
@@ -1273,7 +1278,7 @@ int main(int argc, char *argv[])
 				close_framebuffer();
 				return EXIT_FAILURE;
 			}
-			if (!umount_rootfs())
+			if (!umount_rootfs(steps))
 			{
 				closelog();
 				close_framebuffer();
