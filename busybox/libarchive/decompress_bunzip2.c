@@ -818,6 +818,8 @@ unpack_bz2_stream(transformer_state_t *xstate)
  release_mem:
 	dealloc_bunzip(bd);
 	free(outbuf);
+	// changed for ofgwrite
+	set_step_progress(100);
 
 	return i ? i : IF_DESKTOP(total_written) + 0;
 }
