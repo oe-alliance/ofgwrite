@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "4.1.6";
+const char ofgwrite_version[] = "4.1.7";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -1103,7 +1103,7 @@ void handle_busybox_fatal_error()
 	}
 	sleep(30);
 	close_framebuffer();
-	return EXIT_FAILURE;
+	exit(EXIT_FAILURE);
 }
 
 int main(int argc, char *argv[])
