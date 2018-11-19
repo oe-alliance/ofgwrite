@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "4.1.5";
+const char ofgwrite_version[] = "4.1.6";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -27,7 +27,6 @@ char kernel_filename[1000];
 char kernel_device[1000];
 char rootfs_filename[1000];
 char rootfs_device[1000];
-char rootfs_ubi_device[1000];
 enum RootfsTypeEnum rootfs_type;
 char media_mounts[30][500];
 int media_mount_count = 0;
