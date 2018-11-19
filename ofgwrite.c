@@ -13,7 +13,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "4.1.4";
+const char ofgwrite_version[] = "4.1.5";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -22,15 +22,11 @@ int quiet        = 0;
 int show_help    = 0;
 int found_kernel_device = 0;
 int found_rootfs_device = 0;
-int user_kernel = 0;
-int user_rootfs = 0;
 int newroot_mounted = 0;
 char kernel_filename[1000];
 char kernel_device[1000];
-char kernel_device_arg[1000];
 char rootfs_filename[1000];
 char rootfs_device[1000];
-char rootfs_device_arg[1000];
 char rootfs_ubi_device[1000];
 enum RootfsTypeEnum rootfs_type;
 char media_mounts[30][500];
@@ -165,6 +161,8 @@ int read_args(int argc, char *argv[])
 												{NULL     , no_argument      , NULL,  0} };
 
 	multiboot_partition = -1;
+	user_kernel = 0;
+	user_rootfs = 0;
 
 	while ((opt= getopt_long(argc, argv, short_options, long_options, &option_index)) != -1)
 	{

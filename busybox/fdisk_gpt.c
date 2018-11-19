@@ -151,6 +151,17 @@ gpt_list_table(int xtra UNUSED_PARAM)
 				ext4_rootfs_dev_found(disk_device, i+1);
 				found_rootfs = 1;
 			}
+			if ((user_kernel || user_rootfs) && (strcmp(partname, "bp30") == 0 || strcmp(partname, "bp31") == 0))
+			{
+				char dummy_device[1000];
+				sprintf(dummy_device, "%sp%d", disk_device+5, i+1);  // disk_device+5 because disk_device includes /dev/
+				if ( (user_kernel && (strcmp(kernel_device_arg, dummy_device) == 0))
+				  || (user_rootfs && (strcmp(rootfs_device_arg, dummy_device) == 0)) )
+				{
+					my_printf("User specified device is a bp30/bp31 partition. These partitions shouldn't be used. Never!\nAborting...\n");
+					exit(EXIT_FAILURE);
+				}
+			}
 		}
 	}
 
