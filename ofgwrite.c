@@ -14,7 +14,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "4.2.0";
+const char ofgwrite_version[] = "4.2.1";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -794,6 +794,7 @@ int umount_rootfs(int steps)
 		ret += system("cp -arf /lib64/libnss*      /newroot/lib64");
 		ret += system("cp -arf /lib64/libnsl*      /newroot/lib64");
 		ret += system("cp -arf /lib64/libresolv*   /newroot/lib64");
+		ret += system("cp -arf /lib64/librt*       /newroot/lib64");
 		ret += system("cp -arf /usr/lib64/libtirp* /newroot/usr/lib64");
 		ret += system("cp -arf /usr/lib64/autofs/* /newroot/usr/lib64/autofs");
 		ret += system("cp -arf /etc/nsswitch*    /newroot/etc");
@@ -807,6 +808,7 @@ int umount_rootfs(int steps)
 		ret += system("cp -arf /lib/libnss*      /newroot/lib");
 		ret += system("cp -arf /lib/libnsl*      /newroot/lib");
 		ret += system("cp -arf /lib/libresolv*   /newroot/lib");
+		ret += system("cp -arf /lib/librt*       /newroot/lib");
 		ret += system("cp -arf /usr/lib/libtirp* /newroot/usr/lib");
 		ret += system("cp -arf /usr/lib/autofs/* /newroot/usr/lib/autofs");
 		ret += system("cp -arf /etc/nsswitch*    /newroot/etc");
