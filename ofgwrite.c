@@ -10,10 +10,11 @@
 #include <linux/reboot.h>
 #include <syslog.h>
 #include <sys/mount.h>
+#include <mntent.h>
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "4.2.1";
+const char ofgwrite_version[] = "4.2.2";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
@@ -27,10 +28,14 @@ char kernel_filename[1000];
 char kernel_device[1000];
 char rootfs_filename[1000];
 char rootfs_device[1000];
+char rootfs_mount_point[1000];
 enum RootfsTypeEnum rootfs_type;
-char media_mounts[30][500];
-int media_mount_count = 0;
 int stop_e2_needed = 1;
+struct struct_mountlist
+{
+	char* dir;
+	struct struct_mountlist *next;
+} *mountlist, *mountlist_entry;
 
 
 void my_printf(char const *fmt, ...)
@@ -454,70 +459,110 @@ int rootfs_flash(char* device, char* filename)
 		return flash_ubi_jffs2_rootfs(device, filename, rootfs_type, quiet, no_write);
 }
 
-// read root filesystem and checks whether /newroot is mounted as tmpfs
-void readMounts()
+/* detect rootfs type
+ * checks whether /newroot is mounted as tmpfs
+ * find mountpoint on which the rootfs image files are located
+ */
+int readProcMounts()
 {
-	FILE* f;
-	char* pos_start;
-	char* pos_end;
-	int k;
+	FILE *f;
+	struct mntent *mountEntry;
+	dev_t devno_of_name;
+	int block_dev;
+	int subdir_too = 1;
+	struct stat dummy_stat;
 
-	for (k = 0; k < 30; k++)
-		media_mounts[k][0] = '\0';
-
+	mountlist = NULL;
 	rootfs_type = UNKNOWN;
+	rootfs_mount_point[0] = '\0';
 
-	f = fopen("/proc/mounts", "r");
-	if (f == NULL)
-	{ 
-		perror("Error while opening /proc/mounts");
-		return;
+	if (rootfs_filename[0] != '\0') // rootfs image file found
+	{
+		devno_of_name = rootfs_file_stat.st_dev;
+		block_dev = 0;
+		if (S_ISBLK(rootfs_file_stat.st_mode) || S_ISCHR(rootfs_file_stat.st_mode))
+		{
+			devno_of_name = rootfs_file_stat.st_rdev;
+			block_dev = 1;
+		}
 	}
 
-	char line [1000];
-	while (fgets(line, 1000, f) != NULL)
+	f = setmntent("/proc/mounts", "r");
+	if (!f)
 	{
-		if (strstr (line, " / ") != NULL &&
-			strstr (line, "rootfs") != NULL &&
-			strstr (line, "ubifs") != NULL)
+		perror("Error while opening /proc/mounts");
+		return 0;
+	}
+
+	while ((mountEntry = getmntent(f)) != NULL)
+	{
+		// detect rootfs type
+		if (strstr(mountEntry->mnt_fsname, "rootfs") != NULL
+		 && strcmp(mountEntry->mnt_dir, "/") == 0
+		 && strcmp(mountEntry->mnt_type, "ubifs") == 0)
 		{
 			my_printf("Found UBIFS rootfs\n");
 			rootfs_type = UBIFS;
 		}
-		else if (strstr (line, " / ") != NULL &&
-				 strstr (line, "root") != NULL &&
-				 strstr (line, "jffs2") != NULL)
+		else if (strstr(mountEntry->mnt_fsname, "root") != NULL
+			  && strcmp(mountEntry->mnt_dir, "/") == 0
+			  && strcmp(mountEntry->mnt_type, "jffs2") == 0)
 		{
 			my_printf("Found JFFS2 rootfs\n");
 			rootfs_type = JFFS2;
 		}
-		else if (strstr (line, " / ") != NULL &&
-				 strstr (line, "ext4") != NULL)
+		else if (strcmp(mountEntry->mnt_dir, "/") == 0
+			  && strcmp(mountEntry->mnt_type, "ext4") == 0)
 		{
 			my_printf("Found EXT4 rootfs\n");
 			rootfs_type = EXT4;
 		}
-		else if (strstr (line, "/newroot") != NULL &&
-				 strstr (line, "tmpfs") != NULL)
+		// check newroot
+		else if (strcmp(mountEntry->mnt_dir, "/newroot") == 0
+			  && strcmp(mountEntry->mnt_type, "tmpfs") == 0)
 		{
 			my_printf("Found mounted /newroot\n");
 			newroot_mounted = 1;
 		}
-		else if ((pos_start = strstr (line, " /media/")) != NULL && media_mount_count < 30)
+		else
 		{
-			pos_end = strstr(pos_start + 1, " ");
-			if (pos_end)
+			if (rootfs_filename[0] != '\0')
 			{
-				strncpy(media_mounts[media_mount_count], pos_start + 1, pos_end - pos_start - 1);
-				media_mount_count++;
+				// find mountpoint on which the image files are located
+				if (strcmp(rootfs_filename, mountEntry->mnt_dir) == 0
+				 || strcmp(rootfs_filename, mountEntry->mnt_fsname) == 0
+				 || (stat(mountEntry->mnt_fsname, &dummy_stat) == 0 && dummy_stat.st_rdev == devno_of_name)
+				 || (stat(mountEntry->mnt_dir, &dummy_stat) == 0 && dummy_stat.st_dev == devno_of_name))
+				{
+					strcpy(rootfs_mount_point, mountEntry->mnt_dir);
+				}
+				else // store all other mounts to unmount them
+				{
+					if (strcmp(mountEntry->mnt_dir, "/") != 0
+					 && strcmp(mountEntry->mnt_dir, "/sys") != 0
+					 && strcmp(mountEntry->mnt_dir, "/dev") != 0
+					 && strcmp(mountEntry->mnt_dir, "/dev/pts") != 0
+					 && strcmp(mountEntry->mnt_dir, "/proc") != 0
+					 && strcmp(mountEntry->mnt_dir, "/var/volatile") != 0)
+					{
+						mountlist_entry = malloc(sizeof(*mountlist_entry));
+						mountlist_entry->next = mountlist;
+						mountlist_entry->dir = strdup(mountEntry->mnt_dir);
+						mountlist = mountlist_entry;
+					}
+				}
 			}
 		}
 	}
-
-	fclose(f);
+	endmntent(f);
 
 	if (rootfs_type == UNKNOWN)
 		my_printf("Found unknown rootfs\n");
+
+	if (rootfs_mount_point[0] != '\0')
+		my_printf("Found mountpoint for rootfs file: %s\n", rootfs_mount_point);
+
+	return 1;
 }
 
 int exec_ps()
@@ -672,6 +717,11 @@ int umount_rootfs(int steps)
 		ret += mkdir("/newroot/usr/lib64/autofs", 777);
 	}
 
+	// create maybe needed directory for image files mountpoint
+	char path[1000];
+	snprintf(path, sizeof(path), "mkdir -p /newroot/%s", rootfs_mount_point);
+	ret += system(path);
+
 	if (ret != 0)
 	{
 		my_printf("Error creating necessary directories\n");
@@ -824,22 +874,31 @@ int umount_rootfs(int steps)
 		reboot(LINUX_REBOOT_CMD_RESTART);
 		return 0;
 	}
-	ret = mount("/oldroot/media/", "media/", NULL, MS_MOVE, NULL);
-	if (ret != 0)
+	ret = mount("/oldroot/media/", "media/", NULL, MS_MOVE, NULL);  // ignore return value
+
+	// move mount which includes the image files
+	if ((strncmp(rootfs_mount_point, "/media/", 7) == 0 && ret != 0)
+	 ||  strncmp(rootfs_mount_point, "/var/volatile/", 14) != 0)
 	{
-		// /media is no tmpfs -> move every mount
-		my_printf("/media is not tmpfs\n");
-		int k;
+		my_printf("Move mountpoint of image files\n");
 		char oldroot_path[1000];
-		for (k = 0; k < media_mount_count; k++)
-		{
-			strcpy(oldroot_path, "/oldroot");
-			strcat(oldroot_path, media_mounts[k]);
-			mkdir(media_mounts[k], 777);
-			my_printf("Moving %s to %s\n", oldroot_path, media_mounts[k]);
-			// mount move: ignore errors as e.g. network shares cannot be moved
-			mount(oldroot_path, media_mounts[k], NULL, MS_MOVE, NULL);
-		}
+		strcpy(oldroot_path, "/oldroot");
+		strcat(oldroot_path, rootfs_mount_point);
+		my_printf("Moving %s to %s\n", oldroot_path, rootfs_mount_point);
+		// mount move: ignore errors as e.g. network shares cannot be moved
+		mount(oldroot_path, rootfs_mount_point, NULL, MS_MOVE, NULL);
+	}
+
+	// umount all unneeded filesystems
+	while (mountlist != NULL)
+	{
+		char oldroot_path[1000];
+		my_printf("umounting: %s\n", mountlist->dir);
+		strcpy(oldroot_path, "/oldroot");
+		strcat(oldroot_path, mountlist->dir);
+		umount2(oldroot_path, MNT_DETACH);
+		free(mountlist->dir);
+		mountlist = mountlist->next;
 	}
 
 	// create link for mount/umount for autofs
@@ -1136,7 +1195,8 @@ int main(int argc, char *argv[])
 	}
 
 	// set rootfs type and more
-	readMounts();
+	if (!readProcMounts())
+		return EXIT_FAILURE;
 
 	if (rootfs_type == UBIFS || rootfs_type == JFFS2)
 	{
