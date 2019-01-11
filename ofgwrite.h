@@ -5,7 +5,11 @@ struct stat rootfs_file_stat;
 
 char kernel_device_arg[1000];
 char rootfs_device_arg[1000];
+char kernel_device[1000];
+char rootfs_device[1000];
 
+int found_kernel_device;
+int found_rootfs_device;
 int user_kernel;
 int user_rootfs;
 int multiboot_partition;

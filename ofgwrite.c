@@ -14,20 +14,16 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "4.2.2";
+const char ofgwrite_version[] = "4.3.0";
 int flash_kernel = 0;
 int flash_rootfs = 0;
 int no_write     = 0;
 int force        = 0;
 int quiet        = 0;
 int show_help    = 0;
-int found_kernel_device = 0;
-int found_rootfs_device = 0;
 int newroot_mounted = 0;
 char kernel_filename[1000];
-char kernel_device[1000];
 char rootfs_filename[1000];
-char rootfs_device[1000];
 char rootfs_mount_point[1000];
 enum RootfsTypeEnum rootfs_type;
 int stop_e2_needed = 1;
@@ -1011,10 +1007,12 @@ void ext4_rootfs_dev_found(const char* dev, int partition_number)
 	my_printf("Using %s as rootfs device\n", rootfs_device);
 }
 
-void determineCurrentUsedRootfs()
+/* Reads /proc/cmdline to distinguish whether current running image should be flashed.
+ * It also tries to read block device partition table from cmdline.
+ */
+void readProcCmdline()
 {
-	my_printf("Determine current rootfs\n");
-	// Read /proc/cmdline to distinguish whether current running image should be flashed
+	my_printf("Read /proc/cmdline\n");
 	FILE* f;
 
 	f = fopen("/proc/cmdline", "r");
@@ -1024,26 +1022,28 @@ void determineCurrentUsedRootfs()
 		return;
 	}
 
-	char line[1000];
-	char dev [1000];
+	char line[4096];
 	char* pos;
 	char* pos2;
 	memset(current_rootfs_device, 0, sizeof(current_rootfs_device));
 
-	if (fgets(line, 1000, f) != NULL)
+	if (fgets(line, 4096, f) != NULL)
 	{
-		pos = strstr(line, "root=");
-		if (pos)
+		if ((pos = strstr(line, "root=")) != NULL)
 		{
-			pos2 = strstr(pos, " ");
-			if (pos2)
+			if ((pos2 = strstr(pos, " ")) != NULL)
 			{
 				strncpy(current_rootfs_device, pos + 5, pos2-pos-5);
+				current_rootfs_device[pos2-pos-5] = '\0';
 			}
 			else
 			{
 				strcpy(current_rootfs_device, pos + 5);
 			}
+		}
+		if ((pos = strstr(line, "blkdevparts=")) != NULL)
+		{
+			parse_cmdline_partition_table(pos + 12);
 		}
 	}
 	my_printf("Current rootfs is: %s\n", current_rootfs_device);
@@ -1052,30 +1052,35 @@ void determineCurrentUsedRootfs()
 
 void find_kernel_rootfs_device()
 {
-	determineCurrentUsedRootfs();
+	// get kernel/rootfs from cmdline
+	readProcCmdline();
 
-	// call fdisk -l
-	optind = 0; // reset getopt_long
-	char* argv[] = {
-		"fdisk",		// program name
-		"-l",			// list
-		NULL
-	};
-	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
+	if (!found_kernel_device || !found_rootfs_device) // Both kernel and rootfs needs to be found. Otherwise ignore found devices
+	{
+		found_kernel_device = 0;
+		found_rootfs_device = 0;
+		// get kernel/rootfs from fdisk
+		// call fdisk -l
+		optind = 0; // reset getopt_long
+		char* argv[] = {
+			"fdisk",		// program name
+			"-l",			// list
+			NULL
+		};
+		int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
 
-	my_printf("Execute: fdisk -l\n");
-	if (fdisk_main(argc, argv) != 0)
-		return;
+		my_printf("Execute: fdisk -l\n");
+		if (fdisk_main(argc, argv) != 0)
+			return;
+	}
 
-	// force user kernel
+	// force user kernel/rootfs
 	if (user_kernel)
 	{
 		found_kernel_device = 1;
 		sprintf(kernel_device, "/dev/%s", kernel_device_arg);
 		my_printf("Using %s as kernel device\n", kernel_device);
 	}
-
-	// force user rootfs
 	if (user_rootfs)
 	{
 		found_rootfs_device = 1;
@@ -1185,6 +1190,8 @@ int main(int argc, char *argv[])
 	my_printf("Don't use it if you use multiple ubi volumes in ubi layer!\n\n");
 
 	int ret;
+	found_kernel_device = 0;
+	found_rootfs_device = 0;
 
 	ret = read_args(argc, argv);
 

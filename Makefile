@@ -1,4 +1,4 @@
-SRC = flash_erase.c nandwrite.c ofgwrite.c ubiformat.c ubiutils-common.c libubigen.c libscan.c libubi.c flashcp.c ubidetach.c ubiupdatevol.c fb.c flash_ubi_jffs2.c flash_ext4.c
+SRC = flash_erase.c nandwrite.c ofgwrite.c ubiformat.c ubiutils-common.c libubigen.c libscan.c libubi.c flashcp.c ubidetach.c ubiupdatevol.c fb.c flash_ubi_jffs2.c flash_ext4.c cmdline_parser.c
 
 SRC_BUSYBOX= busybox/fdisk.c \
 	busybox/fdisk_gpt.c \
