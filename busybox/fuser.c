@@ -255,6 +255,7 @@ static smallint scan_recursive(const char *path)
 							|| strcmp(ln, "/oldroot/usr/bin/ntfs-3g") == 0
 							|| strcmp(ln, "/oldroot/usr/share/platform/dvb_init") == 0
 							|| strcmp(ln, "/oldroot/usr/bin/nxserver") == 0
+							|| strcmp(ln, "/oldroot/usr/bin/init_driver") == 0
 							|| strcmp(ln, "/oldroot/usr/share/platform/dvb_init.bin") == 0
 							|| strcmp(ln, "/oldroot/usr/share/platform/nxserver") == 0
 							|| strcmp(ln, "/oldroot/usr/bin/showiframe") == 0
