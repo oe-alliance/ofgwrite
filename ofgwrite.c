@@ -14,13 +14,13 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "4.4.0";
-int flash_kernel = 0;
-int flash_rootfs = 0;
-int no_write     = 0;
-int force        = 0;
-int quiet        = 0;
-int show_help    = 0;
+const char ofgwrite_version[] = "4.4.1";
+int flash_kernel  = 0;
+int flash_rootfs  = 0;
+int no_write      = 0;
+int force_e2_stop = 0;
+int quiet         = 0;
+int show_help     = 0;
 int newroot_mounted = 0;
 char kernel_filename[1000];
 char rootfs_filename[1000];
@@ -155,7 +155,7 @@ int read_args(int argc, char *argv[])
 												{"rootfs" , optional_argument, NULL, 'r'},
 												{"nowrite", no_argument      , NULL, 'n'},
 												{"multi"  , required_argument, NULL, 'm'},
-												{"force"  , optional_argument, NULL, 'f'},
+												{"force"  , no_argument      , NULL, 'f'},
 												{"quiet"  , no_argument      , NULL, 'q'},
 												{"help"   , no_argument      , NULL, 'h'},
 												{NULL     , no_argument      , NULL,  0} };
@@ -214,7 +214,7 @@ int read_args(int argc, char *argv[])
 				no_write = 1;
 				break;
 			case 'f':
-				force = 1;
+				force_e2_stop = 1;
 				break;
 			case 'q':
 				quiet = 1;
@@ -1111,7 +1111,7 @@ void find_kernel_rootfs_device()
 
 	if  (((current_rootfs_sub_dir[0] == '\0' && strcmp(rootfs_device, current_rootfs_device) != 0) ||
 		  ( current_rootfs_sub_dir[0] != '\0' && strcmp(current_rootfs_sub_dir, rootfs_sub_dir) != 0 )
-		 ) && !force
+		 ) && !force_e2_stop
 		)
 	{
 		stop_e2_needed = 0;
