@@ -4,7 +4,8 @@
 #include <string.h>
 
 
-int parse_device_table(char* device_table)
+// search device table for specific partition names
+int search_via_part_names(char* device_table)
 {
 	int partition_number = 1;
 	char device_name[100];
@@ -22,6 +23,12 @@ int parse_device_table(char* device_table)
 	{
 		strcpy(cmp_kernel_name, "(linuxkernel)");
 		strcpy(cmp_rootfs_name, "(linuxrootfs)");
+	}
+	else if (current_rootfs_sub_dir[0] != '\0') // box with rootSubDir feature
+	{
+		sprintf(cmp_kernel_name, "(linuxkernel%d)", multiboot_partition);
+		strcpy(cmp_rootfs_name, "(userdata)");
+		sprintf(rootfs_sub_dir, "linuxrootfs%d", multiboot_partition);
 	}
 	else
 		return 0;
@@ -72,6 +79,65 @@ int parse_device_table(char* device_table)
 	}
 }
 
+// check whether devices point to valid partitions
+int search_current_used_partitions(char* device_table)
+{
+	int partition_number = 1;
+	char device_name[100];
+	char part_name[100];
+	char* pos;
+
+	// read device name
+	if ((pos = strstr(device_table, ":")) == NULL && device_table != pos)
+	{
+		my_printf("Error: No device name in /proc/cmdline blkdevparts: %s\n", device_table);
+		return -1;
+	}
+	pos[0] = '\0';
+	sprintf(device_name, "/dev/%sp", device_table);
+	device_table = pos + 1;
+
+	if (strstr(current_rootfs_device, device_name) == NULL || strstr(current_kernel_device, device_name) == NULL)
+		return -1; // rootfs or kernel are located on other device
+
+	while (device_table)
+	{
+		if ((pos = strstr(device_table, ",")) != NULL)
+			*pos = '\0';
+		sprintf(part_name, "%s%d", device_name, partition_number);
+		if (strstr(part_name, current_kernel_device) != NULL && strstr(device_table, "(linuxkernel") != NULL && current_kernel_device[0] != '\0')
+		{
+			found_kernel_device = 1;
+			strcpy(kernel_device, current_kernel_device);
+		}
+		else if (strstr(part_name, current_rootfs_device) != NULL && strstr(device_table, "(userdata)") != NULL && current_rootfs_device[0] != '\0')
+		{
+			found_rootfs_device = 1;
+			strcpy(rootfs_device, current_rootfs_device);
+		}
+
+		if (pos)
+			device_table = ++pos;
+		else
+			break;
+		partition_number++;
+	}
+
+	if (found_kernel_device)
+		my_printf("Using cmdLine kernel device: %s\n", kernel_device);
+	if (found_rootfs_device)
+		my_printf("Using cmdLine rootfs device: %s\n", rootfs_device);
+	if (found_kernel_device && found_rootfs_device)
+	{
+		strcpy(rootfs_sub_dir, current_rootfs_sub_dir);
+		return 1;
+	}
+	else
+	{
+		my_printf("Error: Wrong or missing kernel/root in /proc/cmdline\n");
+		return -1;
+	}
+}
 
 void parse_cmdline_partition_table(char* cmdline)
 {
@@ -87,7 +153,11 @@ void parse_cmdline_partition_table(char* cmdline)
 	{
 		if ((next_device = strstr(cmdline, ";")) != NULL)
 			*next_device = '\0';
-		ret = parse_device_table(cmdline);
+		if (current_rootfs_sub_dir[0] != '\0' && multiboot_partition == -1)
+			// flash current running image -> check whether devices point to valid partitions
+			ret = search_current_used_partitions(cmdline);
+		else
+			ret = search_via_part_names(cmdline);
 		if (ret != 0)
 			break;
 

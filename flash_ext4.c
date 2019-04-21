@@ -1,3 +1,5 @@
+#include "ofgwrite.h"
+
 #include <stdio.h>
 #include <getopt.h>
 
@@ -114,16 +116,26 @@ int untar_rootfs(char* filename, char* directory, int quiet, int no_write)
 int flash_ext4_rootfs(char* filename, int quiet, int no_write)
 {
 	int ret;
+	char path[1000];
+
 	// instead of creating new filesystem just delete whole content
 	set_step("Deleting ext4 rootfs");
+	strcpy(path, "/oldroot_remount/");
+	if (current_rootfs_sub_dir[0] != '\0') // box with rootSubDir feature
+	{
+		strcat(path, rootfs_sub_dir);
+		strcat(path, "/");
+	}
 	if (!no_write)
 	{
-		ret = rm_rootfs("/oldroot_bind", quiet, no_write); // ignore return value as it always fails, because oldroot_bind cannot be removed
+		ret = rm_rootfs(path, quiet, no_write); // ignore return value as it always fails, because oldroot_remount cannot be removed
 	}
 
 	set_step("Writing ext4 rootfs");
 	set_step_progress(0);
-	if (!untar_rootfs(filename, "/oldroot_bind/", quiet, no_write))
+	if (!no_write && current_rootfs_sub_dir[0] != '\0') // box with rootSubDir feature
+		mkdir(path, 777); // directory is maybe not present
+	if (!untar_rootfs(filename, path, quiet, no_write))
 	{
 		my_printf("Error writing ext4 rootfs\n");
 		return 0;
