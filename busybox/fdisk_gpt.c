@@ -110,14 +110,28 @@ gpt_list_table(int xtra UNUSED_PARAM)
 */
 	//puts("Number  Start (sector)    End (sector)  Size       Code  Name");
 	char partname[19];
-	char kernel_name[7];
-	char rootfs_name[7];
+	char kernel_name[19];
+	char rootfs_name[19];
 	int found_kernel = 0;
 	int found_rootfs = 0;
-	if (multiboot_partition != -1)
+	if (multiboot_partition != -1 && current_rootfs_sub_dir[0] == '\0')
 	{
 		sprintf(kernel_name, "kernel%d", multiboot_partition);
 		sprintf(rootfs_name, "rootfs%d", multiboot_partition);
+	}
+	else if (multiboot_partition != -1 && current_rootfs_sub_dir[0] != '\0') // box with rootSubDir feature
+	{
+		if (multiboot_partition == 1)
+		{
+			strcpy(kernel_name, "linuxkernel");
+			strcpy(rootfs_name, "linuxrootfs");
+		}
+		else
+		{
+			sprintf(kernel_name, "linuxkernel%d", multiboot_partition);
+			strcpy(rootfs_name, "userdata");
+		}
+		sprintf(rootfs_sub_dir, "linuxrootfs%d", multiboot_partition);
 	}
 	else
 	{
@@ -195,17 +209,47 @@ gpt_list_table(int xtra UNUSED_PARAM)
 			int k;
 			for (k = 0; k<19; k++)
 				partname[k] = (char)p->name[k];
-			// expecting names starting with "rootfs" and after that a number. So e.g. rootfs3
-			if (sscanf(partname, "%*[a-z]%d", &multiboot_partition) == EOF)
-				return;
-			my_printf("Using current multiboot partition %d\n", multiboot_partition);
+			if (current_rootfs_sub_dir[0] == '\0')
+			{
+				// expecting names starting with "rootfs" and after that a number. So e.g. rootfs3
+				if (sscanf(partname, "%*[a-z]%d", &multiboot_partition) == EOF)
+					return;
+				my_printf("Using current multiboot partition %d\n", multiboot_partition);
+			}
+			else // box with rootSubDir feature, part name is either linuxrootfs or userdata
+			{
+				if (strcmp(partname, "linuxrootfs") == 0)
+				{
+					multiboot_partition = 1;
+					my_printf("Using current multiboot partition %d\n", multiboot_partition);
+				}
+				else
+				{
+					multiboot_partition = -1;
+					my_printf("Using current multiboot partition userdata\n");
+				}
+			}
 		}
 	}
 
-	if (multiboot_partition != -1)
+	if (multiboot_partition != -1 && current_rootfs_sub_dir[0] == '\0')
 	{
 		sprintf(kernel_name, "kernel%d", multiboot_partition);
 		sprintf(rootfs_name, "rootfs%d", multiboot_partition);
+	}
+	else if (current_rootfs_sub_dir[0] != '\0')
+	{
+		if (multiboot_partition == 1)
+		{
+			strcpy(kernel_name, "linuxkernel");
+			strcpy(rootfs_name, "linuxrootfs");
+		}
+		else
+		{
+			strcpy(kernel_name, current_kernel_device);
+			strcpy(rootfs_name, "userdata");
+		}
+		strcpy(rootfs_sub_dir, current_rootfs_sub_dir);
 	}
 	else
 		return;
