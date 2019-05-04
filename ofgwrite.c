@@ -14,7 +14,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "4.4.2";
+const char ofgwrite_version[] = "4.5.0";
 int flash_kernel  = 0;
 int flash_rootfs  = 0;
 int no_write      = 0;
@@ -324,6 +324,7 @@ int read_mtd_file()
 						else
 							my_printf("  <-  User selected!!\n");
 						found_kernel_device = 1;
+						kernel_flash_mode = MTD;
 					}
 					else
 					{
@@ -353,6 +354,7 @@ int read_mtd_file()
 						else
 							my_printf("  <-  User selected!!\n");
 						found_rootfs_device = 1;
+						rootfs_flash_mode = MTD;
 					}
 					else
 					{
@@ -390,6 +392,7 @@ int read_mtd_file()
 					else
 						my_printf("\n");
 					found_kernel_device = 1;
+					kernel_flash_mode = MTD;
 				}
 				else
 					my_printf("  <-  Error: Kernel file is bigger than device size!!\n");
@@ -414,6 +417,7 @@ int read_mtd_file()
 					else
 						my_printf("\n");
 					found_rootfs_device = 1;
+					rootfs_flash_mode = MTD;
 				}
 				else if (strcmp(esize, "0001f000") == 0)
 					my_printf("  <-  Error: Invalid erasesize\n");
@@ -441,18 +445,22 @@ int read_mtd_file()
 
 int kernel_flash(char* device, char* filename)
 {
-	if (rootfs_type == EXT4)
+	if (kernel_flash_mode == TARBZ2)
 		return flash_ext4_kernel(device, filename, kernel_file_stat.st_size, quiet, no_write);
-	else
+	else if (kernel_flash_mode == MTD)
 		return flash_ubi_jffs2_kernel(device, filename, quiet, no_write);
 }
 
 int rootfs_flash(char* device, char* filename)
 {
-	if (rootfs_type == EXT4)
+	if (rootfs_flash_mode == TARBZ2)
 		return flash_ext4_rootfs(filename, quiet, no_write);
-	else
+	else if (rootfs_flash_mode == MTD)
+	{
+		if (rootfs_type == EXT4) // MTD rootfs with unknown format -> expect ubifs as only ubifs boxes support this
+			rootfs_type = UBIFS;
 		return flash_ubi_jffs2_rootfs(device, filename, rootfs_type, quiet, no_write);
+	}
 }
 
 /* detect rootfs type
@@ -926,7 +934,7 @@ int umount_rootfs(int steps)
 		my_printf("umount not successful\n");
 
 	// mount oldroot to other mountpoint, because otherwise all data in not moved filesystems under /oldroot will be deleted
-	if (rootfs_type == EXT4)
+	if (rootfs_flash_mode == TARBZ2)
 	{
 		ret = mount(rootfs_device, "/oldroot_remount/", "ext4", 0, NULL);
 		if (!ret)
@@ -941,7 +949,7 @@ int umount_rootfs(int steps)
 			return 0;
 		}
 	}
-	else if (ret && rootfs_type != EXT4) // umount failed -> remount read only
+	else if (ret && rootfs_flash_mode != TARBZ2) // umount failed -> remount read only
 	{
 		ret = mount("/oldroot/", "/oldroot/", "", MS_REMOUNT | MS_RDONLY, NULL);
 		if (ret)
@@ -972,6 +980,7 @@ int check_env()
 void ext4_kernel_dev_found(const char* dev, int partition_number)
 {
 	found_kernel_device = 1;
+	kernel_flash_mode = TARBZ2;
 	sprintf(kernel_device, "%sp%d", dev, partition_number);
 	my_printf("Using %s as kernel device\n", kernel_device);
 }
@@ -987,6 +996,7 @@ void ext4_rootfs_dev_found(const char* dev, int partition_number)
 	}
 
 	found_rootfs_device = 1;
+	rootfs_flash_mode = TARBZ2;
 	sprintf(rootfs_device, "%sp%d", dev, partition_number);
 	my_printf("Using %s as rootfs device\n", rootfs_device);
 }
@@ -1050,6 +1060,7 @@ void readProcCmdline()
 
 void find_kernel_rootfs_device()
 {
+	int mtd_kernel_found = found_kernel_device;
 	// get kernel/rootfs from cmdline
 	readProcCmdline();
 
@@ -1072,10 +1083,14 @@ void find_kernel_rootfs_device()
 			return;
 	}
 
+	if (!found_kernel_device && mtd_kernel_found)
+		found_kernel_device = 1;
+
 	// force user kernel/rootfs
 	if (user_kernel)
 	{
 		found_kernel_device = 1;
+		kernel_flash_mode = TARBZ2;
 		sprintf(kernel_device, "/dev/%s", kernel_device_arg);
 		my_printf("Using %s as kernel device\n", kernel_device);
 	}
@@ -1089,6 +1104,7 @@ void find_kernel_rootfs_device()
 		}
 
 		found_rootfs_device = 1;
+		rootfs_flash_mode = TARBZ2;
 		sprintf(rootfs_device, "/dev/%s", rootfs_device_arg);
 		my_printf("Using %s as rootfs device\n", rootfs_device);
 		if (current_rootfs_sub_dir[0] != '\0')
@@ -1125,7 +1141,7 @@ int check_device_size()
 	unsigned long long devsize = 0;
 	int fd = 0;
 	// check kernel
-	if (found_kernel_device && kernel_filename[0] != '\0')
+	if (found_kernel_device && kernel_filename[0] != '\0' && kernel_flash_mode == TARBZ2)
 	{
 		fd = open(kernel_device, O_RDONLY);
 		if (fd <= 0)
@@ -1146,7 +1162,7 @@ int check_device_size()
 	}
 
 	// check rootfs
-	if (found_rootfs_device && rootfs_filename[0] != '\0')
+	if (found_rootfs_device && rootfs_filename[0] != '\0' && rootfs_flash_mode == TARBZ2)
 	{
 		fd = open(rootfs_device, O_RDONLY);
 		if (fd <= 0)
@@ -1204,6 +1220,8 @@ int main(int argc, char *argv[])
 	int ret;
 	found_kernel_device = 0;
 	found_rootfs_device = 0;
+	kernel_flash_mode = FLASH_MODE_UNKNOWN;
+	rootfs_flash_mode = FLASH_MODE_UNKNOWN;
 
 	ret = read_args(argc, argv);
 
@@ -1217,31 +1235,17 @@ int main(int argc, char *argv[])
 	if (!readProcMounts())
 		return EXIT_FAILURE;
 
-	if (rootfs_type == UBIFS || rootfs_type == JFFS2)
-	{
-		my_printf("\n");
-		if (!read_mtd_file())
-			return EXIT_FAILURE;
-	}
-	else if (rootfs_type == EXT4)
-	{
-		my_printf("\n");
-		find_kernel_rootfs_device();
-		if (flash_kernel && !found_kernel_device)
-			return EXIT_FAILURE;
-		if (flash_rootfs && !found_rootfs_device)
-			return EXIT_FAILURE;
-		if (!check_device_size())
-			return EXIT_FAILURE;
-	}
-
+	// find kernel and rootfs devices
 	my_printf("\n");
+	read_mtd_file();
+	if (!found_kernel_device || !found_rootfs_device)
+		find_kernel_rootfs_device();
 
 	if (flash_kernel && (!found_kernel_device || kernel_filename[0] == '\0'))
 	{
 		my_printf("Error: Cannot flash kernel");
 		if (!found_kernel_device)
-			my_printf(", because no kernel MTD entry was found\n");
+			my_printf(", because no kernel device was found\n");
 		else
 			my_printf(", because no kernel file was found\n");
 		return EXIT_FAILURE;
@@ -1251,13 +1255,18 @@ int main(int argc, char *argv[])
 	{
 		my_printf("Error: Cannot flash rootfs");
 		if (!found_rootfs_device)
-			my_printf(", because no rootfs MTD entry was found\n");
+			my_printf(", because no rootfs device was found\n");
 		else if (rootfs_filename[0] == '\0')
 			my_printf(", because no rootfs file was found\n");
 		else
 			my_printf(", because rootfs type is unknown\n");
 		return EXIT_FAILURE;
 	}
+
+	if (!check_device_size())
+		return EXIT_FAILURE;
+
+	my_printf("\n");
 
 	if (flash_kernel && !flash_rootfs) // flash only kernel
 	{
@@ -1303,9 +1312,9 @@ int main(int argc, char *argv[])
 		}
 
 		int steps = 6;
-		if (flash_kernel && rootfs_type != EXT4)
+		if (flash_kernel && rootfs_flash_mode != TARBZ2)
 			steps+= 2;
-		else if (flash_kernel && rootfs_type == EXT4)
+		else if (flash_kernel && rootfs_flash_mode == TARBZ2)
 			steps+= 1;
 		init_framebuffer(steps);
 		show_main_window(0, ofgwrite_version);
@@ -1364,7 +1373,7 @@ int main(int argc, char *argv[])
 			}
 		}
 		// if not running rootfs is flashed then we need to mount it before start flashing
-		if (!no_write && !stop_e2_needed && rootfs_type == EXT4)
+		if (!no_write && !stop_e2_needed && rootfs_flash_mode == TARBZ2)
 		{
 			set_step("Mount rootfs");
 			mkdir("/oldroot_remount", 777);

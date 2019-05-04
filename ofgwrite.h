@@ -24,3 +24,11 @@ enum RootfsTypeEnum
 {
 	UNKNOWN, UBIFS, JFFS2, EXT4
 };
+
+enum FlashModeTypeEnum
+{
+	FLASH_MODE_UNKNOWN, MTD, TARBZ2
+};
+
+enum FlashModeTypeEnum kernel_flash_mode;
+enum FlashModeTypeEnum rootfs_flash_mode;

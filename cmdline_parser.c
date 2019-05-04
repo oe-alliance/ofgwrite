@@ -51,11 +51,13 @@ int search_via_part_names(char* device_table)
 		if (strstr(device_table, cmp_kernel_name) != NULL)
 		{
 			found_kernel_device = 1;
+			kernel_flash_mode = TARBZ2;
 			sprintf(kernel_device, "/dev/%sp%d", device_name, partition_number);
 		}
 		else if (strstr(device_table, cmp_rootfs_name) != NULL)
 		{
 			found_rootfs_device = 1;
+			rootfs_flash_mode = TARBZ2;
 			sprintf(rootfs_device, "/dev/%sp%d", device_name, partition_number);
 		}
 
@@ -108,11 +110,13 @@ int search_current_used_partitions(char* device_table)
 		if (strstr(part_name, current_kernel_device) != NULL && strstr(device_table, "(linuxkernel") != NULL && current_kernel_device[0] != '\0')
 		{
 			found_kernel_device = 1;
+			kernel_flash_mode = TARBZ2;
 			strcpy(kernel_device, current_kernel_device);
 		}
 		else if (strstr(part_name, current_rootfs_device) != NULL && strstr(device_table, "(userdata)") != NULL && current_rootfs_device[0] != '\0')
 		{
 			found_rootfs_device = 1;
+			rootfs_flash_mode = TARBZ2;
 			strcpy(rootfs_device, current_rootfs_device);
 		}
 
