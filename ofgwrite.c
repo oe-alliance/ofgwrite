@@ -1113,18 +1113,6 @@ void find_kernel_rootfs_device()
 		}
 	}
 
-	if (!found_kernel_device)
-	{
-		my_printf("Error: No kernel device found!\n");
-		return;
-	}
-
-	if (!found_rootfs_device)
-	{
-		my_printf("Error: No rootfs device found!\n");
-		return;
-	}
-
 	if  (((current_rootfs_sub_dir[0] == '\0' && strcmp(rootfs_device, current_rootfs_device) != 0) ||
 		  ( current_rootfs_sub_dir[0] != '\0' && strcmp(current_rootfs_sub_dir, rootfs_sub_dir) != 0 )
 		 ) && !force_e2_stop
