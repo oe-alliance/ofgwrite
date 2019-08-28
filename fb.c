@@ -190,6 +190,21 @@ int get_screeninfo()
 	return 1;
 }
 
+// Needed by hisilicon boxes to show gui while e2 is running. screeninfo_var.yoffset is not 0 on these boxes
+int set_screeninfo()
+{
+	g_screeninfo_var.yres_virtual = g_screeninfo_var.yres * 2;
+	g_screeninfo_var.xoffset = g_screeninfo_var.yoffset = 0;
+
+	if (ioctl(g_fbFd, FBIOPUT_VSCREENINFO, &g_screeninfo_var) < 0)
+	{
+		perror("Cannot set variable information");
+		return 0;
+	}
+
+	return 1;
+}
+
 int open_framebuffer()
 {
 	g_fbFd = open(g_fbDevice, O_RDWR);
@@ -591,6 +606,13 @@ int init_framebuffer(int steps)
 			return 0;
 		}
 	}*/
+
+	if (!set_screeninfo())
+	{
+		my_printf("Error: Cannot set screen info\n");
+		close_framebuffer();
+		return 0;
+	}
 
 	if (!mmap_fb())
 	{
