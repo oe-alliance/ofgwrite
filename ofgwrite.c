@@ -14,7 +14,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "4.5.5";
+const char ofgwrite_version[] = "4.5.6";
 int flash_kernel  = 0;
 int flash_rootfs  = 0;
 int no_write      = 0;
@@ -163,6 +163,7 @@ int read_args(int argc, char *argv[])
 	multiboot_partition = -1;
 	user_kernel = 0;
 	user_rootfs = 0;
+	rootsubdir_check = 0;
 
 	while ((opt= getopt_long(argc, argv, short_options, long_options, &option_index)) != -1)
 	{
@@ -198,10 +199,15 @@ int read_args(int argc, char *argv[])
 				break;
 			case 'm':
 				if (optarg)
-					if (strlen(optarg) == 1 && ((int)optarg[0] >= 48) && ((int)optarg[0] <= 57))
+					if (strlen(optarg) == 1 && ((int)optarg[0] >= 49) && ((int)optarg[0] <= 57))
 					{
 						multiboot_partition = strtol(optarg, NULL, 10);
 						my_printf("Flashing multiboot partition %d\n", multiboot_partition);
+					}
+					else if (strlen(optarg) == 1 && ((int)optarg[0] == 48))
+					{
+						my_printf("Flashing without rootSubDir check \n");
+						rootsubdir_check = 1;
 					}
 					else
 					{
@@ -1096,7 +1102,7 @@ void find_kernel_rootfs_device()
 	}
 	if (user_rootfs)
 	{
-		if (current_rootfs_sub_dir[0] != '\0' && multiboot_partition == -1) // box with rootSubDir feature
+		if (current_rootfs_sub_dir[0] != '\0' && multiboot_partition == -1 && rootsubdir_check == 0) // box with rootSubDir feature
 		{
 			found_rootfs_device = 0;
 			my_printf("Error: In case of rootSubDir multiboot with user defined rootfs -m parameter is mandatory\n", rootfs_device);
@@ -1107,7 +1113,7 @@ void find_kernel_rootfs_device()
 		rootfs_flash_mode = TARBZ2;
 		sprintf(rootfs_device, "/dev/%s", rootfs_device_arg);
 		my_printf("Using %s as rootfs device\n", rootfs_device);
-		if (current_rootfs_sub_dir[0] != '\0')
+		if (current_rootfs_sub_dir[0] != '\0' && rootsubdir_check == 0)
 		{
 			sprintf(rootfs_sub_dir, "linuxrootfs%d", multiboot_partition);
 		}

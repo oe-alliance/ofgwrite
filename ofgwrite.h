@@ -13,6 +13,7 @@ int found_kernel_device;
 int found_rootfs_device;
 int user_kernel;
 int user_rootfs;
+int rootsubdir_check;
 int multiboot_partition;
 char current_rootfs_device[1000];
 char current_kernel_device[1000];

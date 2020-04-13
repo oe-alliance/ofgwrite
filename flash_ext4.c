@@ -121,7 +121,7 @@ int flash_ext4_rootfs(char* filename, int quiet, int no_write)
 	// instead of creating new filesystem just delete whole content
 	set_step("Deleting ext4 rootfs");
 	strcpy(path, "/oldroot_remount/");
-	if (current_rootfs_sub_dir[0] != '\0') // box with rootSubDir feature
+	if (current_rootfs_sub_dir[0] != '\0' && rootsubdir_check == 0) // box with rootSubDir feature
 	{
 		strcat(path, rootfs_sub_dir);
 		strcat(path, "/");
@@ -133,7 +133,7 @@ int flash_ext4_rootfs(char* filename, int quiet, int no_write)
 
 	set_step("Writing ext4 rootfs");
 	set_step_progress(0);
-	if (!no_write && current_rootfs_sub_dir[0] != '\0') // box with rootSubDir feature
+	if (!no_write && current_rootfs_sub_dir[0] != '\0' && rootsubdir_check == 0) // box with rootSubDir feature
 		mkdir(path, 777); // directory is maybe not present
 	if (!untar_rootfs(filename, path, quiet, no_write))
 	{
