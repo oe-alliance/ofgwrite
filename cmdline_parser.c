@@ -19,6 +19,11 @@ int search_via_part_names(char* device_table)
 		strcpy(cmp_kernel_name, "(kernel)");
 		strcpy(cmp_rootfs_name, "(rootfs)");
 	}
+	else if (strstr(device_table, "(exkernel)") != NULL && strstr(device_table, "(exrootfs)") != NULL)
+	{
+		strcpy(cmp_kernel_name, "(exkernel)");
+		strcpy(cmp_rootfs_name, "(exrootfs)");
+	}
 	else if (strstr(device_table, "(linuxkernel)") != NULL && strstr(device_table, "(linuxrootfs)") != NULL)
 	{
 		strcpy(cmp_kernel_name, "(linuxkernel)");
