@@ -1459,7 +1459,7 @@ int main(int argc, char *argv[])
 		if (!no_write && stop_e2_needed)
 		{
 			reboot(LINUX_REBOOT_CMD_RESTART);
-
+		}
 	}
 
 	closelog();
