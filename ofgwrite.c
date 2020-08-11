@@ -1449,14 +1449,17 @@ int main(int argc, char *argv[])
 			set_step("Successfully flashed!");
 		}
 		else
+		{
+			ret = umount("/oldroot_remount/");
 			set_step("Successfully flashed! Rebooting in 3 seconds");
+		}
 		fflush(stdout);
 		fflush(stderr);
 		sleep(3);
 		if (!no_write && stop_e2_needed)
 		{
 			reboot(LINUX_REBOOT_CMD_RESTART);
-		}
+
 	}
 
 	closelog();
