@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 
 // search device table for specific partition names
@@ -33,6 +34,12 @@ int search_via_part_names(char* device_table)
 	{
 		strcpy(cmp_kernel_name, "(linuxkernel)");
 		strcpy(cmp_rootfs_name, "(linuxrootfs)");
+	}
+	else if ( access( "/dev/block/by-name/flag", F_OK) != -1 && current_rootfs_sub_dir[0] != '\0')
+	{
+		sprintf(cmp_kernel_name, "(linuxkernel%d)", multiboot_partition);
+		strcpy(cmp_rootfs_name, "(rootfs)");
+		sprintf(rootfs_sub_dir, "linuxrootfs%d", multiboot_partition);
 	}
 	else if (current_rootfs_sub_dir[0] != '\0') // box with rootSubDir feature
 	{
