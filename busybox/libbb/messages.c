@@ -50,6 +50,10 @@ const int const_int_0 = 0;
 
 #if ENABLE_FEATURE_WTMP
 /* This is usually something like "/var/adm/wtmp" or "/var/log/wtmp" */
+/* in OE musl.cfg for busybox only defines CONFIG_FEATURE_WTMP */
+#ifndef __GLIBC__
+#define WTMP_FILE "/var/log/wtmp"
+#endif
 const char bb_path_wtmp_file[] ALIGN1 =
 # if defined _PATH_WTMP
 	_PATH_WTMP;
