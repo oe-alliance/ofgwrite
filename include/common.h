@@ -102,6 +102,15 @@ extern "C" {
 	my_fprintf(stderr, "%s: warning!: " fmt "\n", PROGRAM_NAME, ##__VA_ARGS__); \
 } while(0)
 
+/* musl libc compat */
+#ifndef HAVE_RPMATCH
+#define rpmatch(line) \
+	( (line == NULL)? -1 : \
+	(*line == 'y' || *line == 'Y')? 1 : \
+	(*line == 'n' || *line == 'N')? 0 : \
+	-1 )
+#endif
+
 /**
  * prompt the user for confirmation
  */

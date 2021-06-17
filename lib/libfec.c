@@ -46,6 +46,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* for musl u_long and u_short */
+#ifndef __GLIBC__
+#include <sys/types.h>
+#endif
+
 /*
  * stuff used for testing purposes only
  */
