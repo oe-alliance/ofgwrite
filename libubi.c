@@ -32,6 +32,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/sysmacros.h>
 #include <libubi.h>
 #include "libubi_int.h"
 #include "common.h"
