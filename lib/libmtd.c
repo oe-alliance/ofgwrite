@@ -307,7 +307,7 @@ static int read_hex_int(const char *file, int *value)
 		return -1;
 
 	/* Make sure the value has correct range */
-	if (res > INT_MAX || res < INT_MIN) {
+	if (res > ULONG_MAX || res < INT_MIN) {
 		errmsg("value %lld read from file \"%s\" is out of range",
 		       res, file);
 		errno = EINVAL;
