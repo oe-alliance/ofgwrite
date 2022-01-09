@@ -323,7 +323,8 @@ int read_mtd_file()
 				{
 					if ((strcmp(name, "\"kernel\"") == 0
 						|| strcmp(name, "\"nkernel\"") == 0
-						|| strcmp(name, "\"kernel2\"") == 0))
+						|| strcmp(name, "\"kernel2\"") == 0
+						|| strcmp(name, "\"boot\"") == 0))
 					{
 						if (kernel_filename[0] != '\0')
 							my_printf("  ->  %s <- User selected!!\n", kernel_filename);
@@ -352,8 +353,9 @@ int read_mtd_file()
 				if (rootfs_file_stat.st_size <= devsize
 					&& strcmp(esize, "0001f000") != 0)
 				{
-					if (strcmp(name, "\"rootfs\"") == 0
-						|| strcmp(name, "\"rootfs2\"") == 0)
+					if ((strcmp(name, "\"rootfs\"") == 0
+						|| strcmp(name, "\"rootfs2\"") == 0
+						|| strcmp(name, "\"root\"") == 0))
 					{
 						if (rootfs_filename[0] != '\0')
 							my_printf("  ->  %s <- User selected!!\n", rootfs_filename);
@@ -382,7 +384,8 @@ int read_mtd_file()
 			// auto kernel
 			else if (!user_kernel
 					&& (strcmp(name, "\"kernel\"") == 0
-						|| strcmp(name, "\"nkernel\"") == 0))
+						|| strcmp(name, "\"nkernel\"") == 0
+						|| strcmp(name, "\"boot\"") == 0))
 			{
 				if (found_kernel_device)
 				{
@@ -404,7 +407,9 @@ int read_mtd_file()
 					my_printf("  <-  Error: Kernel file is bigger than device size!!\n");
 			}
 			// auto rootfs
-			else if (!user_rootfs && strcmp(name, "\"rootfs\"") == 0)
+			else if (!user_rootfs 
+					&& (strcmp(name, "\"rootfs\"") == 0
+						|| strcmp(name, "\"root\"") == 0))
 			{
 				if (found_rootfs_device)
 				{
