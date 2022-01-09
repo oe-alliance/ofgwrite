@@ -355,6 +355,7 @@ int read_mtd_file()
 				{
 					if ((strcmp(name, "\"rootfs\"") == 0
 						|| strcmp(name, "\"rootfs2\"") == 0
+						|| strcmp(name, "\"dreambox-rootfs\"") == 0
 						|| strcmp(name, "\"root\"") == 0))
 					{
 						if (rootfs_filename[0] != '\0')
@@ -409,6 +410,7 @@ int read_mtd_file()
 			// auto rootfs
 			else if (!user_rootfs 
 					&& (strcmp(name, "\"rootfs\"") == 0
+						|| strcmp(name, "\"dreambox-rootfs\"") == 0
 						|| strcmp(name, "\"root\"") == 0))
 			{
 				if (found_rootfs_device)
