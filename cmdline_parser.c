@@ -35,6 +35,11 @@ int search_via_part_names(char* device_table)
 		strcpy(cmp_kernel_name, "(boot)");
 		strcpy(cmp_rootfs_name, "(root)");
 	}
+	else if (strstr(device_table, "(kernel)") != NULL && strstr(device_table, "(dreambox-rootfs)") != NULL)
+	{
+		strcpy(cmp_kernel_name, "(kernel)");
+		strcpy(cmp_rootfs_name, "(dreambox-rootfs)");
+	}
 	else if (strstr(device_table, "(linuxkernel)") != NULL && strstr(device_table, "(linuxrootfs)") != NULL)
 	{
 		strcpy(cmp_kernel_name, "(linuxkernel)");
