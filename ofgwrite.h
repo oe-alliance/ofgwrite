@@ -18,6 +18,7 @@ int multiboot_partition;
 char current_rootfs_device[1000];
 char current_kernel_device[1000];
 char current_rootfs_sub_dir[1000];
+char ubi_fs_name[1000];
 
 void handle_busybox_fatal_error();
 
@@ -28,7 +29,7 @@ enum RootfsTypeEnum
 
 enum FlashModeTypeEnum
 {
-	FLASH_MODE_UNKNOWN, MTD, TARBZ2
+	FLASH_MODE_UNKNOWN, MTD, TARBZ2, TARBZ2_MTD
 };
 
 enum FlashModeTypeEnum kernel_flash_mode;

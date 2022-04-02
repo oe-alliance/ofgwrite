@@ -113,13 +113,13 @@ int untar_rootfs(char* filename, char* directory, int quiet, int no_write)
 	return 1;
 }
 
-int flash_ext4_rootfs(char* filename, int quiet, int no_write)
+int flash_unpack_rootfs(char* filename, int quiet, int no_write)
 {
 	int ret;
 	char path[1000];
 
 	// instead of creating new filesystem just delete whole content
-	set_step("Deleting ext4 rootfs");
+	set_step("Deleting rootfs");
 	strcpy(path, "/oldroot_remount/");
 	if (current_rootfs_sub_dir[0] != '\0' && rootsubdir_check == 0) // box with rootSubDir feature
 	{
@@ -131,13 +131,13 @@ int flash_ext4_rootfs(char* filename, int quiet, int no_write)
 		ret = rm_rootfs(path, quiet, no_write); // ignore return value as it always fails, because oldroot_remount cannot be removed
 	}
 
-	set_step("Writing ext4 rootfs");
+	set_step("Extracting rootfs");
 	set_step_progress(0);
 	if (!no_write && current_rootfs_sub_dir[0] != '\0' && rootsubdir_check == 0) // box with rootSubDir feature
 		mkdir(path, 777); // directory is maybe not present
 	if (!untar_rootfs(filename, path, quiet, no_write))
 	{
-		my_printf("Error writing ext4 rootfs\n");
+		my_printf("Error extracting rootfs\n");
 		return 0;
 	}
 	sync();
