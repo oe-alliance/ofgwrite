@@ -14,7 +14,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-const char ofgwrite_version[] = "4.6.0";
+const char ofgwrite_version[] = "4.6.1";
 int flash_kernel  = 0;
 int flash_rootfs  = 0;
 int no_write      = 0;
@@ -1142,7 +1142,7 @@ void find_kernel_rootfs_device()
 		}
 	}
 
-	if  (((current_rootfs_sub_dir[0] == '\0' && strcmp(rootfs_device, current_rootfs_device) != 0) ||
+	if  (((current_rootfs_sub_dir[0] == '\0' && strcmp(rootfs_device, current_rootfs_device) != 0 && rootfs_flash_mode != MTD) ||
 		  ( current_rootfs_sub_dir[0] != '\0' && strcmp(current_rootfs_sub_dir, rootfs_sub_dir) != 0 )
 		 ) && !force_e2_stop
 		)
