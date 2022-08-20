@@ -50,7 +50,7 @@ char rootfs_mount_point[1000];
 enum RootfsTypeEnum rootfs_type;
 int stop_e2_needed = 1;
 
-const char ofgwrite_version[] = "4.6.1";
+const char ofgwrite_version[] = "4.6.2";
 
 struct struct_mountlist
 {
