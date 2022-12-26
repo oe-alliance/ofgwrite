@@ -50,7 +50,7 @@ char rootfs_mount_point[1000];
 enum RootfsTypeEnum rootfs_type;
 int stop_e2_needed = 1;
 
-const char ofgwrite_version[] = "4.6.2";
+const char ofgwrite_version[] = "4.6.3";
 
 struct struct_mountlist
 {
@@ -198,7 +198,7 @@ int read_args(int argc, char *argv[])
 				flash_kernel = 1;
 				if (optarg)
 				{
-					if ((!strncmp(optarg, "mtd", 3)) || (!strncmp(optarg, "mmcblk", 6)) || (!strncmp(optarg, "sd", 2)))
+					if ((!strncmp(optarg, "mtd", 3)) || (!strncmp(optarg, "mmcblk", 6)) || (!strncmp(optarg, "sd", 2)) || (!strncmp(optarg, "boot", 4)))
 					{
 						my_printf("Flashing kernel with arg %s\n", optarg);
 						strcpy(kernel_device_arg, optarg);
@@ -212,7 +212,7 @@ int read_args(int argc, char *argv[])
 				flash_rootfs = 1;
 				if (optarg)
 				{
-					if ((!strncmp(optarg, "mtd", 3)) || (!strncmp(optarg, "mmcblk", 6)) || (!strncmp(optarg, "sd", 2)))
+					if ((!strncmp(optarg, "mtd", 3)) || (!strncmp(optarg, "mmcblk", 6)) || (!strncmp(optarg, "sd", 2)) || (!strncmp(optarg, "dreambox-rootfs", 15)))
 					{
 						my_printf("Flashing rootfs with arg %s\n", optarg);
 						strcpy(rootfs_device_arg, optarg);
@@ -380,8 +380,7 @@ int read_mtd_file()
 				{
 					if ((strcmp(name, "\"rootfs\"") == 0
 						|| strcmp(name, "\"rootfs2\"") == 0
-						|| strcmp(name, "\"dreambox-rootfs\"") == 0
-						|| strcmp(name, "\"root\"") == 0))
+						|| strcmp(name, "\"dreambox-rootfs\"") == 0))
 					{
 						if (rootfs_filename[0] != '\0')
 							my_printf("  ->  %s <- User selected!!\n", rootfs_filename);
