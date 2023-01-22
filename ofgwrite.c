@@ -29,6 +29,7 @@ int user_kernel;
 int user_rootfs;
 int rootsubdir_check;
 int multiboot_partition;
+char kexec_mode[1000];
 char current_rootfs_device[1000];
 char current_kernel_device[1000];
 char current_rootfs_sub_dir[1000];
@@ -50,7 +51,7 @@ char rootfs_mount_point[1000];
 enum RootfsTypeEnum rootfs_type;
 int stop_e2_needed = 1;
 
-const char ofgwrite_version[] = "4.6.3";
+const char ofgwrite_version[] = "4.6.4";
 
 struct struct_mountlist
 {
@@ -93,6 +94,7 @@ void printUsage()
 	my_printf("Options:\n");
 	my_printf("   -k --kernel           flash kernel with automatic device recognition(default)\n");
 	my_printf("   -kmtdx --kernel=mtdx  use mtdx device for kernel flashing\n");
+	my_printf("   -ksdx --kernel=sdx    use sdx device for kernel flashing\n");
 	my_printf("   -kmmcblkxpx --kernel=mmcblkxpx  use mmcblkxpx device for kernel flashing\n");
 	my_printf("   -r --rootfs           flash rootfs with automatic device recognition(default)\n");
 	my_printf("   -rmtdy --rootfs=mtdy  use mtdy device for rootfs flashing\n");
@@ -1090,15 +1092,18 @@ void readProcCmdline()
 
 	char line[4096];
 	char* pos;
+	memset(kexec_mode, 0, sizeof(kexec_mode));
 	memset(current_rootfs_device, 0, sizeof(current_rootfs_device));
 	memset(current_kernel_device, 0, sizeof(current_kernel_device));
 	memset(current_rootfs_sub_dir, 0, sizeof(current_rootfs_sub_dir));
 
 	if (fgets(line, 4096, f) != NULL)
 	{
+		find_store_substring(line, "kexec=", kexec_mode);
 		find_store_substring(line, "root=", current_rootfs_device);
 		find_store_substring(line, "kernel=", current_kernel_device);
 		find_store_substring(line, "rootsubdir=", current_rootfs_sub_dir);
+		my_printf("Kexec mode is: %s\n", kexec_mode);
 		my_printf("Current rootfs is: %s\n", current_rootfs_device);
 		my_printf("Current kernel is: %s\n", current_kernel_device);
 		my_printf("Current root sub dir is: %s\n", current_rootfs_sub_dir);
@@ -1139,14 +1144,8 @@ void find_kernel_rootfs_device()
 	if (!found_kernel_device && mtd_kernel_found)
 		found_kernel_device = 1;
 
+
 	// force user kernel/rootfs
-	if (user_kernel)
-	{
-		found_kernel_device = 1;
-		kernel_flash_mode = TARBZ2;
-		sprintf(kernel_device, "/dev/%s", kernel_device_arg);
-		my_printf("Using %s as kernel device\n", kernel_device);
-	}
 	if (user_rootfs)
 	{
 		if (current_rootfs_sub_dir[0] != '\0' && multiboot_partition == -1 && rootsubdir_check == 0) // box with rootSubDir feature
@@ -1159,6 +1158,34 @@ void find_kernel_rootfs_device()
 		found_rootfs_device = 1;
 		rootfs_flash_mode = TARBZ2;
 		sprintf(rootfs_device, "/dev/%s", rootfs_device_arg);
+		my_printf("Using %s as rootfs device\n", rootfs_device);
+		if (current_rootfs_sub_dir[0] != '\0' && rootsubdir_check == 0)
+		{
+			sprintf(rootfs_sub_dir, "linuxrootfs%d", multiboot_partition);
+		}
+	}
+	if (user_kernel)
+	{
+		found_kernel_device = 1;
+		kernel_flash_mode = TARBZ2;
+		if (strcmp(kexec_mode, "1") != 0) {
+			sprintf(kernel_device, "/dev/%s", kernel_device_arg);
+		} else {
+			sprintf(kernel_device, "/oldroot_remount/linuxrootfs%d/%s", multiboot_partition, kernel_device_arg);
+		}
+		my_printf("Using %s as kernel device\n", kernel_device);
+	}
+
+	// use kexec kernel mode
+	if (!found_kernel_device && strcmp(kexec_mode, "1") == 0)
+	{
+		found_kernel_device = 1;
+		kernel_flash_mode = TARBZ2;
+		sprintf(kernel_device, "/oldroot_remount/linuxrootfs%d/boot/kernel_auto.bin", multiboot_partition);
+		my_printf("Using %s as kernel device\n", kernel_device);
+		found_rootfs_device = 1;
+		rootfs_flash_mode = TARBZ2;
+		strcpy(rootfs_device, current_rootfs_device);
 		my_printf("Using %s as rootfs device\n", rootfs_device);
 		if (current_rootfs_sub_dir[0] != '\0' && rootsubdir_check == 0)
 		{
@@ -1182,7 +1209,7 @@ int check_device_size()
 	unsigned long long devsize = 0;
 	int fd = 0;
 	// check kernel
-	if (found_kernel_device && kernel_filename[0] != '\0' && kernel_flash_mode == TARBZ2)
+	if (found_kernel_device && kernel_filename[0] != '\0' && kernel_flash_mode == TARBZ2 && (strcmp(kexec_mode, "1") != 0))
 	{
 		fd = open(kernel_device, O_RDONLY);
 		if (fd <= 0)
@@ -1450,6 +1477,23 @@ int main(int argc, char *argv[])
 			}
 		}
 
+
+		// Flash rootfs
+		if (!rootfs_flash(rootfs_device, rootfs_filename))
+		{
+			my_printf("Error flashing rootfs! System won't boot. Please flash backup! System will reboot in 60 seconds\n");
+			set_error_text1("Error flashing rootfs. System won't boot!");
+			set_error_text2("Please flash backup! Rebooting in 60 sec");
+			if (stop_e2_needed)
+			{
+				sleep(60);
+				reboot(LINUX_REBOOT_CMD_RESTART);
+			}
+			sleep(3);
+			close_framebuffer();
+			return EXIT_FAILURE;
+		}
+
 		//Flash kernel
 		if (flash_kernel)
 		{
@@ -1472,22 +1516,6 @@ int main(int argc, char *argv[])
 			}
 			sync();
 			my_printf("Successfully flashed kernel!\n");
-		}
-
-		// Flash rootfs
-		if (!rootfs_flash(rootfs_device, rootfs_filename))
-		{
-			my_printf("Error flashing rootfs! System won't boot. Please flash backup! System will reboot in 60 seconds\n");
-			set_error_text1("Error flashing rootfs. System won't boot!");
-			set_error_text2("Please flash backup! Rebooting in 60 sec");
-			if (stop_e2_needed)
-			{
-				sleep(60);
-				reboot(LINUX_REBOOT_CMD_RESTART);
-			}
-			sleep(3);
-			close_framebuffer();
-			return EXIT_FAILURE;
 		}
 
 		my_printf("Successfully flashed rootfs! Rebooting in 3 seconds...\n");
