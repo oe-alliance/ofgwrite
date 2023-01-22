@@ -1181,7 +1181,7 @@ void find_kernel_rootfs_device()
 	{
 		found_kernel_device = 1;
 		kernel_flash_mode = TARBZ2;
-		sprintf(kernel_device, "/oldroot_remount/linuxrootfs%d/boot/kernel_auto.bin", multiboot_partition);
+		sprintf(kernel_device, "/oldroot_remount/linuxrootfs%d/zImage", multiboot_partition);
 		my_printf("Using %s as kernel device\n", kernel_device);
 		found_rootfs_device = 1;
 		rootfs_flash_mode = TARBZ2;
