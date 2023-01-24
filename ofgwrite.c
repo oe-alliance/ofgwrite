@@ -1183,6 +1183,11 @@ void find_kernel_rootfs_device()
 		kernel_flash_mode = TARBZ2;
 		sprintf(kernel_device, "/oldroot_remount/linuxrootfs%d/zImage", multiboot_partition);
 		my_printf("Using %s as kernel device\n", kernel_device);
+	}
+
+	// use kexec rootfs mode
+	if (!found_rootfs_device && strcmp(kexec_mode, "1") == 0)
+	{
 		found_rootfs_device = 1;
 		rootfs_flash_mode = TARBZ2;
 		strcpy(rootfs_device, current_rootfs_device);
