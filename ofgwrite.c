@@ -1122,7 +1122,7 @@ void find_kernel_rootfs_device()
 	// get kernel/rootfs from cmdline
 	readProcCmdline();
 
-	if (!found_kernel_device || !found_rootfs_device) // Both kernel and rootfs needs to be found. Otherwise ignore found devices
+	if ((!found_kernel_device || !found_rootfs_device) && strcmp(kexec_mode, "1") != 0) // Both kernel and rootfs needs to be found. Otherwise ignore found devices
 	{
 		found_kernel_device = 0;
 		found_rootfs_device = 0;
