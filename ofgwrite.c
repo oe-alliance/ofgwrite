@@ -176,6 +176,8 @@ int read_args(int argc, char *argv[])
 {
 	int option_index = 0;
 	int opt;
+	char *endptr;
+	long val;
 	static const char *short_options = "k::r::nm:fqh";
 	static const struct option long_options[] = {
 												{"kernel" , optional_argument, NULL, 'k'},
@@ -226,21 +228,23 @@ int read_args(int argc, char *argv[])
 				break;
 			case 'm':
 				if (optarg)
-					if (strlen(optarg) == 1 && ((int)optarg[0] >= 49) && ((int)optarg[0] <= 57))
+					errno = 0;
+					val = strtol(optarg, &endptr, 10);
+					if (errno != 0 || endptr == optarg)
 					{
-						multiboot_partition = strtol(optarg, NULL, 10);
+						my_printf("Error: Wrong multiboot partition value. Only numeric values are allowed!\n");
+						show_help = 1;
+						return 0;
+					}
+					else if (val > 0)
+					{
+						multiboot_partition = val;
 						my_printf("Flashing multiboot partition %d\n", multiboot_partition);
 					}
-					else if (strlen(optarg) == 1 && ((int)optarg[0] == 48))
+					else if (val == 0)
 					{
 						my_printf("Flashing without rootSubDir check \n");
 						rootsubdir_check = 1;
-					}
-					else
-					{
-						my_printf("Error: Wrong multiboot partition value. Only values between 0 and 9 are allowed!\n");
-						show_help = 1;
-						return 0;
 					}
 				break;
 			case 'n':
