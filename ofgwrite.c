@@ -55,7 +55,7 @@ char slotname[1000];
 enum RootfsTypeEnum rootfs_type;
 int stop_e2_needed = 1;
 
-const char ofgwrite_version[] = "4.6.4";
+const char ofgwrite_version[] = "4.6.5";
 
 struct struct_mountlist
 {
@@ -1084,7 +1084,7 @@ void find_store_substring(char* src, char* cmp, char* dest)
 
 	if ((pos = strstr(src, cmp)) != NULL)
 	{
-		if ((pos2 = strstr(pos, " ")) != NULL)
+		if (((pos2 = strstr(pos, " ")) != NULL) || ((pos2 = strstr(pos, "\n")) != NULL))
 		{
 			strncpy(dest, pos + strlen(cmp), pos2-pos-strlen(cmp));
 			dest[pos2-pos-strlen(cmp)] = '\0';
