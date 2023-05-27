@@ -11,6 +11,7 @@ SRC_BUSYBOX= busybox/fdisk.c \
 	busybox/libarchive/data_extract_to_stdout.c \
 	busybox/libarchive/data_skip.c \
 	busybox/libarchive/decompress_bunzip2.c \
+	busybox/libarchive/decompress_unxz.c \
 	busybox/libarchive/filter_accept_reject_list.c \
 	busybox/libarchive/filter_accept_all.c \
 	busybox/libarchive/find_list_entry.c \

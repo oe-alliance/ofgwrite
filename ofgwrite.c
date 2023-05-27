@@ -55,7 +55,7 @@ char slotname[1000];
 enum RootfsTypeEnum rootfs_type;
 int stop_e2_needed = 1;
 
-const char ofgwrite_version[] = "4.6.5";
+const char ofgwrite_version[] = "4.6.6";
 
 struct struct_mountlist
 {
@@ -162,7 +162,8 @@ int find_image_files(char* p)
 			 || strcmp(entry->d_name, "oe_rootfs.bin") == 0			// DAGS boxes
 			 || strcmp(entry->d_name, "e2jffs2.img") == 0			// Spark boxes
 			 || strcmp(entry->d_name, "rootfs.tar.bz2") == 0		// solo4k
-			 || strcmp(entry->d_name, "rootfs.ubi") == 0)			// Zgemma H9
+			 || strcmp(entry->d_name, "rootfs.ubi") == 0			// Zgemma H9
+			 || strcmp(entry->d_name, "rootfs.tar.xz") == 0)		// dream
 			{
 				strcpy(rootfs_filename, path);
 				strcpy(&rootfs_filename[strlen(path)], entry->d_name);
