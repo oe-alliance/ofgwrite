@@ -12,6 +12,4 @@ Options:
 
 Warning:  
 Run the program once with -n parameter and check whether mtd partitions   
-are recognized properly. If not, don't use this tool!!!  
-On VU+ boxes there is a risk of bricking the box which is afaik not  
-possible with Xtrend boxes.  
+are recognized properly. If not, don't use this tool!!!
