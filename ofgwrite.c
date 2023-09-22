@@ -41,6 +41,7 @@ char ubi_fs_name[1000];
 enum FlashModeTypeEnum kernel_flash_mode;
 enum FlashModeTypeEnum rootfs_flash_mode;
 
+int external_script = 0;
 int flash_kernel  = 0;
 int flash_rootfs  = 0;
 int no_write      = 0;
@@ -52,10 +53,11 @@ char kernel_filename[1000];
 char rootfs_filename[1000];
 char rootfs_mount_point[1000];
 char slotname[1000];
+char externalscript[1000];
 enum RootfsTypeEnum rootfs_type;
 int stop_e2_needed = 1;
 
-const char ofgwrite_version[] = "4.6.6";
+const char ofgwrite_version[] = "4.6.7";
 
 struct struct_mountlist
 {
@@ -96,6 +98,7 @@ void printUsage()
 {
 	my_printf("Usage: ofgwrite <parameter> <image_directory>\n");
 	my_printf("Options:\n");
+	my_printf("   -e --externalscript   start script after flash /usr/bin/flash-ofgwrite \n");
 	my_printf("   -k --kernel           flash kernel with automatic device recognition(default)\n");
 	my_printf("   -kmtdx --kernel=mtdx  use mtdx device for kernel flashing\n");
 	my_printf("   -ksdx --kernel=sdx    use sdx device for kernel flashing\n");
@@ -184,29 +187,35 @@ int read_args(int argc, char *argv[])
 	int opt;
 	char *endptr;
 	long val;
-	static const char *short_options = "k::r::ns:m:fqh";
+	static const char *short_options = "ek::r::ns:m:fqh";
 	static const struct option long_options[] = {
-												{"kernel"  , optional_argument, NULL, 'k'},
-												{"rootfs"  , optional_argument, NULL, 'r'},
-												{"nowrite" , no_argument      , NULL, 'n'},
-												{"slotname", required_argument, NULL, 's'},
-												{"multi"   , required_argument, NULL, 'm'},
-												{"force"   , no_argument      , NULL, 'f'},
-												{"quiet"   , no_argument      , NULL, 'q'},
-												{"help"    , no_argument      , NULL, 'h'},
-												{NULL      , no_argument      , NULL,  0} };
+												{"externalscript"  , no_argument, NULL, 'e'},
+												{"kernel"    , optional_argument, NULL, 'k'},
+												{"rootfs"    , optional_argument, NULL, 'r'},
+												{"nowrite"   , no_argument      , NULL, 'n'},
+												{"slotname"  , required_argument, NULL, 's'},
+												{"multi"     , required_argument, NULL, 'm'},
+												{"force"     , no_argument      , NULL, 'f'},
+												{"quiet"     , no_argument      , NULL, 'q'},
+												{"help"      , no_argument      , NULL, 'h'},
+												{NULL        , no_argument      , NULL,  0} };
 
 	strcpy(slotname, "linuxrootfs");
+	strcpy(externalscript, "/usr/bin/flash-ofgwrite");
 	multiboot_partition = -1;
 	user_kernel = 0;
 	user_rootfs = 0;
 	user_slotname = 0;
+	external_script = 0;
 	rootsubdir_check = 0;
 
 	while ((opt= getopt_long(argc, argv, short_options, long_options, &option_index)) != -1)
 	{
 		switch (opt)
 		{
+			case 'e':
+				external_script = 1;
+				break;
 			case 'k':
 				flash_kernel = 1;
 				if (optarg)
@@ -1549,6 +1558,15 @@ int main(int argc, char *argv[])
 			}
 			sync();
 			my_printf("Successfully flashed kernel!\n");
+		}
+
+		//Start External Script
+		if (external_script)
+		{
+			char external_cmd[1000];
+			sprintf(external_cmd, "%s %s %s",externalscript, rootfs_device, kernel_device);
+			my_printf("starting: %s\n", external_cmd);
+			ret = system(external_cmd);
 		}
 
 		my_printf("Successfully flashed rootfs! Rebooting in 3 seconds...\n");
