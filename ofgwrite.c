@@ -794,6 +794,7 @@ int umount_rootfs(int steps)
 	ret += mkdir("/newroot/usr", 777);
 	ret += mkdir("/newroot/usr/lib", 777);
 	ret += mkdir("/newroot/usr/lib/autofs", 777);
+	ret += mkdir("/newroot/usr/sbin", 777);
 	ret += mkdir("/newroot/var", 777);
 	ret += mkdir("/newroot/var/volatile", 777);
 
@@ -901,6 +902,9 @@ int umount_rootfs(int steps)
 		ret += system("cp -arf /usr/lib/autofs/* /newroot/usr/lib/autofs");
 		ret += system("cp -arf /etc/nsswitch*    /newroot/etc");
 		ret += system("cp -arf /etc/resolv*      /newroot/etc");
+		ret += system("cp -arf /usr/sbin/librecovery   /newroot/usr/sbin");
+		ret += system("cp -arf /usr/sbin/flash-kernel  /newroot/usr/sbin");
+		ret += system("cp -arf /usr/bin/mkbootimg  /newroot/usr/bin");
 	}
 
 	// Switch to user mode 1
