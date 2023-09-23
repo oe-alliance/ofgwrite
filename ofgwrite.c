@@ -10,11 +10,53 @@
 #include <linux/reboot.h>
 #include <syslog.h>
 #include <sys/mount.h>
+#include <sys/stat.h>
 #include <mntent.h>
 #include <unistd.h>
 #include <errno.h>
+#include <openssl/evp.h>
 
 #include "busybox/include/libbb.h"
+
+#define SHA_DIGEST_LENGTH 20
+
+typedef struct {
+    // ... (other header fields)
+    size_t kernel_size;
+    size_t ramdisk_size;
+    size_t second_size;
+    unsigned char id[SHA_DIGEST_LENGTH]; // SHA-1 hash result
+    // ... (other header fields)
+} Header;
+
+typedef struct boot_img_hdr boot_img_hdr;
+
+#define BOOT_MAGIC "ANDROID!"
+#define BOOT_MAGIC_SIZE 8
+#define BOOT_NAME_SIZE 16
+#define BOOT_ARGS_SIZE 512
+#define BOOT_EXTRA_ARGS_SIZE 1024
+
+struct boot_img_hdr
+{
+    uint8_t magic[BOOT_MAGIC_SIZE];
+    uint32_t kernel_size;  /* size in bytes */
+    uint32_t kernel_addr;  /* physical load addr */
+    uint32_t ramdisk_size; /* size in bytes */
+    uint32_t ramdisk_addr; /* physical load addr */
+    uint32_t second_size;  /* size in bytes */
+    uint32_t second_addr;  /* physical load addr */
+    uint32_t tags_addr;    /* physical addr for kernel tags */
+    uint32_t page_size;    /* flash page size we assume */
+    uint32_t unused[2];    /* future expansion: should be 0 */
+    uint8_t name[BOOT_NAME_SIZE]; /* asciiz product name */
+    uint8_t cmdline[BOOT_ARGS_SIZE];
+    uint32_t id[8]; /* timestamp / checksum / sha1 / etc */
+    /* Supplemental command line data; kept here to maintain
+     * binary compatibility with older versions of mkbootimg */
+    uint8_t extra_cmdline[BOOT_EXTRA_ARGS_SIZE];
+} __attribute__((packed));
+
 
 struct stat kernel_file_stat;
 struct stat rootfs_file_stat;
@@ -41,7 +83,7 @@ char ubi_fs_name[1000];
 enum FlashModeTypeEnum kernel_flash_mode;
 enum FlashModeTypeEnum rootfs_flash_mode;
 
-int external_script = 0;
+int android = 0;
 int flash_kernel  = 0;
 int flash_rootfs  = 0;
 int no_write      = 0;
@@ -53,7 +95,7 @@ char kernel_filename[1000];
 char rootfs_filename[1000];
 char rootfs_mount_point[1000];
 char slotname[1000];
-char externalscript[1000];
+char *boxname = NULL;
 enum RootfsTypeEnum rootfs_type;
 int stop_e2_needed = 1;
 
@@ -65,6 +107,221 @@ struct struct_mountlist
 	struct struct_mountlist *next;
 } *mountlist, *mountlist_entry;
 
+
+static unsigned char padding[16384] = { 0, };
+
+static void print_id(const uint8_t *id, size_t id_len) {
+    my_printf("0x");
+    for (unsigned i = 0; i < id_len; i++) {
+        my_printf("%02x", id[i]);
+    }
+    my_printf("\n");
+}
+
+int write_padding(int fd, unsigned pagesize, unsigned itemsize)
+{
+    unsigned pagemask = pagesize - 1;
+    ssize_t count;
+
+    if((itemsize & pagemask) == 0) {
+        return 0;
+    }
+
+    count = pagesize - (itemsize & pagemask);
+
+    if(write(fd, padding, count) != count) {
+        return -1;
+    } else {
+        return 0;
+    }
+}
+
+static void *load_file(const char *fn, unsigned *_sz)
+{
+    char *data;
+    int sz;
+    int fd;
+
+    data = 0;
+    fd = open(fn, O_RDONLY);
+    if(fd < 0) return 0;
+
+    sz = lseek(fd, 0, SEEK_END);
+    if(sz < 0) goto oops;
+
+    if(lseek(fd, 0, SEEK_SET) != 0) goto oops;
+
+    data = (char*) malloc(sz);
+    if(data == 0) goto oops;
+
+    if(read(fd, data, sz) != sz) goto oops;
+    close(fd);
+
+    if(_sz) *_sz = sz;
+    return data;
+
+oops:
+    close(fd);
+    if(data != 0) free(data);
+    return 0;
+}
+
+int generate_boot_image()
+{
+    boot_img_hdr hdr;
+    char *kernel_fn = NULL;
+    void *kernel_data = NULL;
+    char *ramdisk_fn = NULL;
+    void *ramdisk_data = NULL;
+    int second_fn_len = snprintf(NULL, 0, "/oldroot_remount/boot/dream%s.dtb", boxname);
+    char *second_fn = (char *)malloc(second_fn_len + 1);
+    void *second_data = NULL;
+    int cmdline_len = snprintf(NULL, 0, "console=ttyS0,1000000 root=%s rootwait rootfstype=ext4 no_console_suspend", rootfs_device);
+    char *cmdline = (char *)malloc(cmdline_len + 1);
+    char *bootimg = NULL;
+    char *board = "";
+    uint32_t pagesize = 2048;
+    int fd;
+    const uint8_t* sha;
+    uint32_t base           = 0x10000000U;
+    uint32_t kernel_offset  = 0x00008000U;
+    uint32_t ramdisk_offset = 0x01000000U;
+    uint32_t second_offset  = 0x00f00000U;
+    uint32_t tags_offset    = 0x00000100U;
+    size_t cmdlen;
+
+    memset(&hdr, 0, sizeof(hdr));
+
+
+    bool get_id = false;
+    bootimg = "/oldroot_remount/boot/kernel.img";
+    kernel_fn = "/oldroot_remount/boot/Image.gz-4.9";
+    snprintf(second_fn, second_fn_len + 1, "/oldroot_remount/boot/dream%s.dtb", boxname);
+    snprintf(cmdline, cmdline_len + 1,"console=ttyS0,1000000 root=%s rootwait rootfstype=ext4 no_console_suspend", rootfs_device);
+    base = strtoul("0", 0, 16);
+    kernel_offset = strtoul("0x1080000", 0, 16);
+    second_offset = strtoul("0x1000000", 0, 16);
+    board = boxname;
+    my_printf("bootimage bootimg:%s\n",bootimg);
+    my_printf("bootimage kernel_fn:%s\n",kernel_fn);
+    my_printf("bootimage second_fn:%s\n",second_fn);
+    my_printf("bootimage cmdline:%s\n",cmdline);
+    my_printf("bootimage base:%08X\n",base);
+    my_printf("bootimage kernel_offset:%08X\n",kernel_offset);
+    my_printf("bootimage second_offset:%08X\n",second_offset);
+    my_printf("bootimage board:%s\n",board);
+
+    hdr.page_size = pagesize;
+
+    hdr.kernel_addr =  base + kernel_offset;
+    hdr.ramdisk_addr = base + ramdisk_offset;
+    hdr.second_addr =  base + second_offset;
+    hdr.tags_addr =    base + tags_offset;
+
+    if(strlen(board) >= BOOT_NAME_SIZE) {
+        my_printf("error: board name too large\n");
+        return EXIT_FAILURE;;
+    }
+
+    strcpy((char *) hdr.name, board);
+    memcpy(hdr.magic, BOOT_MAGIC, BOOT_MAGIC_SIZE);
+    cmdlen = strlen(cmdline);
+    if(cmdlen > (BOOT_ARGS_SIZE + BOOT_EXTRA_ARGS_SIZE - 2)) {
+        my_printf("error: kernel commandline too large\n");
+        return EXIT_FAILURE;;
+    }
+    /* Even if we need to use the supplemental field, ensure we
+     * are still NULL-terminated */
+    strncpy((char *)hdr.cmdline, cmdline, BOOT_ARGS_SIZE - 1);
+    hdr.cmdline[BOOT_ARGS_SIZE - 1] = '\0';
+    if (cmdlen >= (BOOT_ARGS_SIZE - 1)) {
+        cmdline += (BOOT_ARGS_SIZE - 1);
+        strncpy((char *)hdr.extra_cmdline, cmdline, BOOT_EXTRA_ARGS_SIZE);
+    }
+    kernel_data = load_file(kernel_fn, &hdr.kernel_size);
+    if(kernel_data == 0) {
+        my_printf("error: could not load kernel '%s'\n", kernel_fn);
+        return EXIT_FAILURE;;
+    }
+        ramdisk_data = 0;
+        hdr.ramdisk_size = 0;
+
+    if(second_fn) {
+        second_data = load_file(second_fn, &hdr.second_size);
+        if(second_data == 0) {
+            my_printf("error: could not load secondstage '%s'\n", second_fn);
+            return EXIT_FAILURE;;
+        }
+    }
+    /* put a hash of the contents in the header so boot images can be
+     * differentiated based on their first 2k.
+     */
+    EVP_MD_CTX *mdctx;
+    const EVP_MD *md;
+    unsigned char hash[SHA_DIGEST_LENGTH];
+
+    // Initialize OpenSSL library
+    OPENSSL_init_crypto(OPENSSL_INIT_ADD_ALL_DIGESTS, NULL);
+    // Create a context for the hash operation
+    mdctx = EVP_MD_CTX_new();
+
+    if (!mdctx) {
+        my_printf("EVP_MD_CTX_new() failed.\n");
+        return EXIT_FAILURE;;
+    }
+
+    // Specify the hash algorithm (SHA-1 in this case)
+    md = EVP_sha1();
+
+    // Initialize the context with the chosen hash algorithm
+    if (1 != EVP_DigestInit_ex(mdctx, md, NULL)) {
+        my_printf("EVP_DigestInit_ex() failed.\n");
+        return EXIT_FAILURE;;
+    }
+    // Update the hash context with your data
+    // Assuming kernel_data, ramdisk_data, second_data, and hdr are properly defined
+    // hdr.kernel_size, hdr.ramdisk_size, and hdr.second_size are also assumed to be set correctly
+    EVP_DigestUpdate(mdctx, kernel_data, hdr.kernel_size);
+    EVP_DigestUpdate(mdctx, &hdr.kernel_size, sizeof(hdr.kernel_size));
+    EVP_DigestUpdate(mdctx, ramdisk_data, hdr.ramdisk_size);
+    EVP_DigestUpdate(mdctx, &hdr.ramdisk_size, sizeof(hdr.ramdisk_size));
+    EVP_DigestUpdate(mdctx, second_data, hdr.second_size);
+    EVP_DigestUpdate(mdctx, &hdr.second_size, sizeof(hdr.second_size));
+    // Finalize the hash and obtain the result
+    if (1 != EVP_DigestFinal_ex(mdctx, hash, NULL)) {
+        my_printf("EVP_DigestFinal_ex() failed.\n");
+        return EXIT_FAILURE;;
+    }
+
+    // Copy the hash result to hdr.id
+    memcpy(hdr.id, hash, SHA_DIGEST_LENGTH);
+    fd = open(bootimg, O_CREAT | O_TRUNC | O_WRONLY, 0644);
+    if(fd < 0) {
+        my_printf("error: could not create '%s'\n", bootimg);
+        return EXIT_FAILURE;;
+    }
+    if(write(fd, &hdr, sizeof(hdr)) != sizeof(hdr)) goto fail;
+    if(write_padding(fd, pagesize, sizeof(hdr))) goto fail;
+    if(write(fd, kernel_data, hdr.kernel_size) != (ssize_t) hdr.kernel_size) goto fail;
+    if(write_padding(fd, pagesize, hdr.kernel_size)) goto fail;
+    if(write(fd, ramdisk_data, hdr.ramdisk_size) != (ssize_t) hdr.ramdisk_size) goto fail;
+    if(write_padding(fd, pagesize, hdr.ramdisk_size)) goto fail;
+    if(second_data) {
+        if(write(fd, second_data, hdr.second_size) != (ssize_t) hdr.second_size) goto fail;
+        if(write_padding(fd, pagesize, hdr.second_size)) goto fail;
+    }
+
+    if (get_id) {
+        print_id((uint8_t *) hdr.id, sizeof(hdr.id));
+    }
+    return 0;
+
+fail:
+    unlink(bootimg);
+    close(fd);
+    my_printf("error: failed writing '%s': %s\n", bootimg);
+    return EXIT_FAILURE;;
+}
 
 void my_printf(char const *fmt, ...)
 {
@@ -98,7 +355,7 @@ void printUsage()
 {
 	my_printf("Usage: ofgwrite <parameter> <image_directory>\n");
 	my_printf("Options:\n");
-	my_printf("   -e --externalscript   start script after flash /usr/bin/flash-ofgwrite \n");
+	my_printf("   -a --android          create Android boot image header\n");
 	my_printf("   -k --kernel           flash kernel with automatic device recognition(default)\n");
 	my_printf("   -kmtdx --kernel=mtdx  use mtdx device for kernel flashing\n");
 	my_printf("   -ksdx --kernel=sdx    use sdx device for kernel flashing\n");
@@ -112,6 +369,39 @@ void printUsage()
 	my_printf("   -f --force            force kill e2\n");
 	my_printf("   -q --quiet            show less output\n");
 	my_printf("   -h --help             show help\n");
+}
+
+char* ReadProcEntry(char *filename)
+{
+	FILE *boxtype_file = fopen(filename,"r");
+	char boxtype_name[20];
+	char *real_boxtype_name = NULL;
+	char c;
+	int i = 0;
+
+	if(boxtype_file)
+	{
+		while ((c = fgetc(boxtype_file)) != EOF && i < sizeof(boxtype_name) - 2)
+		{
+			if (c == '\n')
+			{
+				i--;
+				break;
+			}
+			boxtype_name[i] = c;
+			i++;
+		}
+		boxtype_name[i+1] = '\0';
+		real_boxtype_name = malloc(strlen(boxtype_name) + 1);
+		if (real_boxtype_name)
+			strcpy(real_boxtype_name, boxtype_name);
+
+		fclose(boxtype_file);
+	}
+	else
+		my_printf("Can not open this proc entry!\n");
+
+	return real_boxtype_name;
 }
 
 int find_image_files(char* p)
@@ -187,9 +477,9 @@ int read_args(int argc, char *argv[])
 	int opt;
 	char *endptr;
 	long val;
-	static const char *short_options = "ek::r::ns:m:fqh";
+	static const char *short_options = "ak::r::ns:m:fqh";
 	static const struct option long_options[] = {
-												{"externalscript"  , no_argument, NULL, 'e'},
+												{"android"  , no_argument, NULL, 'a'},
 												{"kernel"    , optional_argument, NULL, 'k'},
 												{"rootfs"    , optional_argument, NULL, 'r'},
 												{"nowrite"   , no_argument      , NULL, 'n'},
@@ -201,20 +491,21 @@ int read_args(int argc, char *argv[])
 												{NULL        , no_argument      , NULL,  0} };
 
 	strcpy(slotname, "linuxrootfs");
-	strcpy(externalscript, "/usr/bin/flash-ofgwrite");
 	multiboot_partition = -1;
 	user_kernel = 0;
 	user_rootfs = 0;
 	user_slotname = 0;
-	external_script = 0;
+	android = 0;
 	rootsubdir_check = 0;
 
 	while ((opt= getopt_long(argc, argv, short_options, long_options, &option_index)) != -1)
 	{
 		switch (opt)
 		{
-			case 'e':
-				external_script = 1;
+			case 'a':
+				boxname = ReadProcEntry("/proc/stb/info/model");
+				my_printf("Boxname detectet: %s\n", boxname);
+				android = 1;
 				break;
 			case 'k':
 				flash_kernel = 1;
@@ -902,9 +1193,6 @@ int umount_rootfs(int steps)
 		ret += system("cp -arf /usr/lib/autofs/* /newroot/usr/lib/autofs");
 		ret += system("cp -arf /etc/nsswitch*    /newroot/etc");
 		ret += system("cp -arf /etc/resolv*      /newroot/etc");
-		ret += system("cp -arf /usr/sbin/librecovery   /newroot/usr/sbin");
-		ret += system("cp -arf /usr/sbin/flash-kernel  /newroot/usr/sbin");
-		ret += system("cp -arf /usr/bin/mkbootimg  /newroot/usr/bin");
 	}
 
 	// Switch to user mode 1
@@ -1564,13 +1852,22 @@ int main(int argc, char *argv[])
 			my_printf("Successfully flashed kernel!\n");
 		}
 
-		//Start External Script
-		if (external_script)
+		//Android boot kernel.img Dreambox one/two
+		if (android)
 		{
-			char external_cmd[1000];
-			sprintf(external_cmd, "%s %s %s",externalscript, rootfs_device, kernel_device);
-			my_printf("starting: %s\n", external_cmd);
-			ret = system(external_cmd);
+			// Check if the kernel.img file already exists
+			if (access("/oldroot_remount/boot/kernel.img", F_OK) != -1) {
+				// If it exists, remove it
+				if (remove("/oldroot_remount/boot/kernel.img") != 0) {
+					my_printf("Failed to delete existing kernel.img");
+					return EXIT_FAILURE;
+				}
+				printf("Existing kernel.img removed.\n");
+			}
+			my_printf("start generate boot image\n");
+			generate_boot_image();
+			sync();
+			sleep(1);
 		}
 
 		my_printf("Successfully flashed rootfs! Rebooting in 3 seconds...\n");
