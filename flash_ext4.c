@@ -140,7 +140,10 @@ int flash_unpack_rootfs(char* filename, int quiet, int no_write)
 		my_printf("Error extracting rootfs\n");
 		return 0;
 	}
+	// sync filesystem double because of sdcard
 	sync();
+	sync();
+	sleep(1);
 	ret = chdir("/"); // needed to be able to umount filesystem
 	return 1;
 }

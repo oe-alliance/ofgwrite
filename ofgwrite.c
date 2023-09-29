@@ -1785,7 +1785,7 @@ int main(int argc, char *argv[])
 			{
 				// most likely partition is not formatted -> format it
 				char mkfs_cmd[100];
-				sprintf(mkfs_cmd, "mkfs.ext4 %s", rootfs_device);
+				sprintf(mkfs_cmd, "mkfs.ext4 -F -E lazy_itable_init=0 %s", rootfs_device);
 				my_printf("Formatting %s\n", rootfs_device);
 				ret = system(mkfs_cmd);
 				if (!ret)
