@@ -84,6 +84,7 @@ enum FlashModeTypeEnum kernel_flash_mode;
 enum FlashModeTypeEnum rootfs_flash_mode;
 
 int android = 0;
+int dreamcard = 1;
 int flash_kernel  = 0;
 int flash_rootfs  = 0;
 int no_write      = 0;
@@ -166,7 +167,7 @@ oops:
     return 0;
 }
 
-int generate_boot_image()
+int generate_boot_image(const char *kernelPath)
 {
     boot_img_hdr hdr;
     char *kernel_fn = NULL;
@@ -194,7 +195,7 @@ int generate_boot_image()
 
 
     bool get_id = false;
-    bootimg = "/oldroot_remount/boot/kernel.img";
+    bootimg = kernelPath;
     kernel_fn = "/oldroot_remount/boot/Image.gz-4.9";
     snprintf(second_fn, second_fn_len + 1, "/oldroot_remount/boot/dream%s.dtb", boxname);
     snprintf(cmdline, cmdline_len + 1,"console=ttyS0,1000000 root=%s rootwait rootfstype=ext4 no_console_suspend", rootfs_device);
@@ -295,6 +296,17 @@ int generate_boot_image()
 
     // Copy the hash result to hdr.id
     memcpy(hdr.id, hash, SHA_DIGEST_LENGTH);
+
+    // Check if the kernel.img file already exists
+    if (access(bootimg, F_OK) != -1) {
+        // If it exists, remove it
+        if (remove(bootimg) != 0) {
+            my_printf("Failed to delete existing %s\n", bootimg);
+           return EXIT_FAILURE;
+        }
+        my_printf("Existing %s removed.\n", bootimg);
+    }
+
     fd = open(bootimg, O_CREAT | O_TRUNC | O_WRONLY, 0644);
     if(fd < 0) {
         my_printf("error: could not create '%s'\n", bootimg);
@@ -314,12 +326,13 @@ int generate_boot_image()
     if (get_id) {
         print_id((uint8_t *) hdr.id, sizeof(hdr.id));
     }
+    my_printf("Successfully writing '%s'\n", bootimg);
     return 0;
 
 fail:
     unlink(bootimg);
     close(fd);
-    my_printf("error: failed writing '%s': %s\n", bootimg);
+    my_printf("error: failed writing '%s'\n", bootimg);
     return EXIT_FAILURE;;
 }
 
@@ -1095,6 +1108,10 @@ int umount_rootfs(int steps)
 		ret += mkdir("/newroot/usr/lib64", 777);
 		ret += mkdir("/newroot/usr/lib64/autofs", 777);
 	}
+	if (android)
+	{
+		ret += mkdir("/newroot/dreamcard", 777);
+	}
 
 	// create maybe needed directory for image files mountpoint
 	char path[1000];
@@ -1114,7 +1131,9 @@ int umount_rootfs(int steps)
 		ret += system("cp -arf /bin/sh*          /newroot/bin");
 		ret += system("cp -arf /bin/bash*        /newroot/bin");
 		ret += system("cp -arf /sbin/init*       /newroot/sbin");
+		ret += system("cp -arf /sbin/blkid*       /newroot/sbin");
 		ret += system("cp -arf /lib64/libc*        /newroot/lib64");
+		ret += system("cp -arf /lib64/libblkid.*   /newroot/lib64");
 		ret += system("cp -arf /lib64/ld*          /newroot/lib64");
 		ret += system("cp -arf /lib64/libtinfo*    /newroot/lib64");
 		ret += system("cp -arf /lib64/libdl*       /newroot/lib64");
@@ -1125,7 +1144,9 @@ int umount_rootfs(int steps)
 		ret += system("cp -arf /bin/sh*          /newroot/bin");
 		ret += system("cp -arf /bin/bash*        /newroot/bin");
 		ret += system("cp -arf /sbin/init*       /newroot/sbin");
+		ret += system("cp -arf /sbin/blkid*       /newroot/sbin");
 		ret += system("cp -arf /lib/libc*        /newroot/lib");
+		ret += system("cp -arf /lib/libblkid.*   /newroot/lib");
 		ret += system("cp -arf /lib/ld*          /newroot/lib");
 		ret += system("cp -arf /lib/libtinfo*    /newroot/lib");
 		ret += system("cp -arf /lib/libdl*       /newroot/lib");
@@ -1785,7 +1806,7 @@ int main(int argc, char *argv[])
 			{
 				// most likely partition is not formatted -> format it
 				char mkfs_cmd[100];
-				sprintf(mkfs_cmd, "mkfs.ext4 -F -E lazy_itable_init=0 %s", rootfs_device);
+				sprintf(mkfs_cmd, "mkfs.ext4 -F %s", rootfs_device);
 				my_printf("Formatting %s\n", rootfs_device);
 				ret = system(mkfs_cmd);
 				if (!ret)
@@ -1827,6 +1848,7 @@ int main(int argc, char *argv[])
 			close_framebuffer();
 			return EXIT_FAILURE;
 		}
+		my_printf("Successfully flashed rootfs!\n");
 
 		//Flash kernel
 		if (flash_kernel)
@@ -1855,33 +1877,90 @@ int main(int argc, char *argv[])
 		//Android boot kernel.img Dreambox one/two
 		if (android)
 		{
-			// Check if the kernel.img file already exists
-			if (access("/oldroot_remount/boot/kernel.img", F_OK) != -1) {
-				// If it exists, remove it
-				if (remove("/oldroot_remount/boot/kernel.img") != 0) {
-					my_printf("Failed to delete existing kernel.img");
-					return EXIT_FAILURE;
+			set_step("Create Kernel.img");
+			const char *dreamcard_device = "/dev/mmcblk1p1";
+			const char *dreamcard_mount = "/dreamcard";
+			char device_root[256];
+			char label[50] = "";
+			char *position = strchr(rootfs_device, 'p');
+			int length = position - rootfs_device;
+			strncpy(device_root, rootfs_device, length);
+			device_root[length] = '\0';
+
+			if (strcmp(device_root, "/dev/mmcblk1") == 0)
+			{
+				my_printf("Mount dreamcard\n");
+				mkdir(dreamcard_mount, 777);
+
+				FILE *device = fopen("/dev/mmcblk1p1", "rb");
+				if (device == NULL) {
+					my_printf("Error opening dreamcard device");
+					dreamcard = 0;
 				}
-				printf("Existing kernel.img removed.\n");
+
+				char command[100];
+				snprintf(command, sizeof(command), "blkid.util-linux -s LABEL -o value %s", dreamcard_device);
+				FILE *fp = popen(command, "r");
+				char label[50];
+				fgets(label, sizeof(label), fp);
+				pclose(fp);
+
+				if (strcmp(label, "\n") == 0) {
+					my_printf("Info: no label is present\n");
+					dreamcard = 0;
+				}
+
+				if (strcmp(label, "DREAMCARD\n") != 0) {
+					my_printf("Info: The device label does not match 'dreamcard'\n");
+					dreamcard = 0;
+				}
+				if (dreamcard) {
+					ret = umount(dreamcard_device);
+					sync();
+					sleep(1);
+					if (mount(dreamcard_device, dreamcard_mount, "vfat", 0, NULL) == -1) {
+						my_printf("Error: dreamcard device '%s' not mounted to '%s':%s.\n",dreamcard_device, dreamcard_mount, strerror(errno));
+						rmdir(dreamcard_mount);
+						return EXIT_FAILURE;
+					}
+					size_t length = strlen(rootfs_device);
+					int kernelnr = (length > 0) ? rootfs_device[length - 1] - '0' : -1;
+					if (kernelnr < 0 || kernelnr > 9) {
+						my_printf("Error: Invalid kernel number\n");
+						rmdir(dreamcard_mount);
+						return EXIT_FAILURE;
+					}
+					char filename[50];
+					snprintf(filename, sizeof(filename), "/dreamcard/kernel%d.img", kernelnr);
+					my_printf("start generate %s image on %s\n", filename, dreamcard_device);
+					generate_boot_image(filename);
+					sync();
+					sleep(1);
+					ret = umount2(dreamcard_mount, MNT_DETACH);
+					ret = rmdir(dreamcard_mount);
+				}
 			}
-			my_printf("start generate boot image\n");
-			generate_boot_image();
+			my_printf("start generate /oldroot_remount/boot/kernel.img image on device %s\n", rootfs_device);
+			generate_boot_image("/oldroot_remount/boot/kernel.img");
 			sync();
 			sleep(1);
 		}
 
-		my_printf("Successfully flashed rootfs! Rebooting in 3 seconds...\n");
+		sync();
+		sleep(1);
 		if (!stop_e2_needed)
 		{
-			ret = umount("/oldroot_remount/");
+			ret = umount2("/oldroot_remount/", MNT_DETACH);
 			ret = rmdir("/oldroot_remount/");
-			ret = umount("/newroot/");
+			ret = umount2("/newroot/", MNT_DETACH);
 			ret = rmdir("/newroot/");
+			my_printf("Successfully flashed image\n");
 			set_step("Successfully flashed!");
 		}
 		else
 		{
 			ret = umount("/oldroot_remount/");
+			my_printf("Successfully flashed image Rebooting in 3 seconds...\n");
 			set_step("Successfully flashed! Rebooting in 3 seconds");
 		}
 		fflush(stdout);
