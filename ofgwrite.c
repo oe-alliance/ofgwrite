@@ -1131,12 +1131,15 @@ int umount_rootfs(int steps)
 		ret += system("cp -arf /bin/sh*          /newroot/bin");
 		ret += system("cp -arf /bin/bash*        /newroot/bin");
 		ret += system("cp -arf /sbin/init*       /newroot/sbin");
-		ret += system("cp -arf /sbin/blkid*       /newroot/sbin");
 		ret += system("cp -arf /lib64/libc*        /newroot/lib64");
-		ret += system("cp -arf /lib64/libblkid.*   /newroot/lib64");
 		ret += system("cp -arf /lib64/ld*          /newroot/lib64");
 		ret += system("cp -arf /lib64/libtinfo*    /newroot/lib64");
 		ret += system("cp -arf /lib64/libdl*       /newroot/lib64");
+		if (android)
+		{
+			ret += system("cp -arf /sbin/blkid*       /newroot/sbin");
+			ret += system("cp -arf /lib64/libblkid.*   /newroot/lib64");
+		}
 	}
 	else
 	{
@@ -1144,12 +1147,15 @@ int umount_rootfs(int steps)
 		ret += system("cp -arf /bin/sh*          /newroot/bin");
 		ret += system("cp -arf /bin/bash*        /newroot/bin");
 		ret += system("cp -arf /sbin/init*       /newroot/sbin");
-		ret += system("cp -arf /sbin/blkid*       /newroot/sbin");
 		ret += system("cp -arf /lib/libc*        /newroot/lib");
-		ret += system("cp -arf /lib/libblkid.*   /newroot/lib");
 		ret += system("cp -arf /lib/ld*          /newroot/lib");
 		ret += system("cp -arf /lib/libtinfo*    /newroot/lib");
 		ret += system("cp -arf /lib/libdl*       /newroot/lib");
+		if (android)
+		{
+			ret += system("cp -arf /sbin/blkid*       /newroot/sbin");
+			ret += system("cp -arf /lib/libblkid.*   /newroot/lib");
+		}
 	}
 
 	if (ret != 0)
