@@ -469,8 +469,8 @@ int find_image_files(char* p)
 			 || strcmp(entry->d_name, "e2jffs2.img") == 0			// Spark boxes
 			 || strcmp(entry->d_name, "rootfs.tar.bz2") == 0		// solo4k
 			 || strcmp(entry->d_name, "rootfs.ubi") == 0			// Zgemma H9
-			 || strcmp(entry->d_name, "rootfs.tar.xz") == 0)		// dream
-			 || strcmp(entry->d_name, "rootfs-dreamone.tar.bz2") == 0)		// dreamone
+			 || strcmp(entry->d_name, "rootfs.tar.xz") == 0		// dream
+			 || strcmp(entry->d_name, "rootfs-dreamone.tar.bz2") == 0		// dreamone
 			 || strcmp(entry->d_name, "rootfs-dreamtwo.tar.bz2") == 0)		// dreamtwo
 			{
 				strcpy(rootfs_filename, path);
