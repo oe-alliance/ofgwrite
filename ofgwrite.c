@@ -100,7 +100,7 @@ char *boxname = NULL;
 enum RootfsTypeEnum rootfs_type;
 int stop_e2_needed = 1;
 
-const char ofgwrite_version[] = "4.6.7";
+const char ofgwrite_version[] = "4.6.8";
 
 struct struct_mountlist
 {
@@ -1498,7 +1498,7 @@ void find_kernel_rootfs_device()
 
 
 	// force user kernel/rootfs
-	if (user_rootfs)
+	if (user_rootfs && rootfs_flash_mode != TARBZ2_MTD && rootfs_flash_mode != MTD)
 	{
 		if (current_rootfs_sub_dir[0] != '\0' && multiboot_partition == -1 && rootsubdir_check == 0) // box with rootSubDir feature
 		{
@@ -1516,7 +1516,7 @@ void find_kernel_rootfs_device()
 			sprintf(rootfs_sub_dir, "%s%d", slotname, multiboot_partition);
 		}
 	}
-	if (user_kernel)
+	if (user_kernel && kernel_flash_mode != MTD)
 	{
 		found_kernel_device = 1;
 		kernel_flash_mode = TARBZ2;
