@@ -1398,8 +1398,7 @@ void ext4_rootfs_dev_found(const char* dev, int partition_number)
 	sprintf(rootfs_device, "%sp", dev);
 	if (strncmp(rootfs_device, current_rootfs_device, strlen(rootfs_device)) != 0)
 	{
-		my_printf("Rootfs(%s) is on different device than current rootfs(%s). Maybe wrong device selected. -> Aborting\n", dev, current_rootfs_device);
-		return;
+		my_printf("Rootfs(%s) is on different device than current rootfs(%s). Maybe wrong device selected\n", dev, current_rootfs_device);
 	}
 
 	found_rootfs_device = 1;
