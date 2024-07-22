@@ -100,7 +100,7 @@ char *boxname = NULL;
 enum RootfsTypeEnum rootfs_type;
 int stop_e2_needed = 1;
 
-const char ofgwrite_version[] = "4.6.8";
+const char ofgwrite_version[] = "4.6.9";
 
 struct struct_mountlist
 {
@@ -1394,14 +1394,6 @@ void ext4_kernel_dev_found(const char* dev, int partition_number)
 
 void ext4_rootfs_dev_found(const char* dev, int partition_number)
 {
-	// Check whether rootfs is on the same device as current used rootfs
-	sprintf(rootfs_device, "%sp", dev);
-	if (strncmp(rootfs_device, current_rootfs_device, strlen(rootfs_device)) != 0)
-	{
-		my_printf("Rootfs(%s) is on different device than current rootfs(%s). Maybe wrong device selected. -> Aborting\n", dev, current_rootfs_device);
-		return;
-	}
-
 	found_rootfs_device = 1;
 	rootfs_flash_mode = TARBZ2;
 	sprintf(rootfs_device, "%sp%d", dev, partition_number);

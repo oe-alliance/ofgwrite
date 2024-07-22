@@ -103,7 +103,7 @@ int search_via_part_names(char* device_table)
 		return 1;
 	else
 	{
-		my_printf("Error: Wrong formatted blkdevparts in /proc/cmdline\n");
+		my_printf("No partitions found in /proc/cmdline\n");
 		return -1;
 	}
 }
