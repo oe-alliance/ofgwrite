@@ -112,8 +112,14 @@ gpt_list_table(int xtra UNUSED_PARAM)
 	char partname[19];
 	char kernel_name[19];
 	char rootfs_name[19];
+	char kernel_name_hd51[19];
+	char rootfs_name_hd51[19];
 	int found_kernel = 0;
 	int found_rootfs = 0;
+	kernel_name[0] = '\0';
+	rootfs_name[0] = '\0';
+	kernel_name_hd51[0] = '\0';
+	rootfs_name_hd51[0] = '\0';
 	if (multiboot_partition != -1 && current_rootfs_sub_dir[0] == '\0')
 	{
 		sprintf(kernel_name, "kernel%d", multiboot_partition);
@@ -123,8 +129,12 @@ gpt_list_table(int xtra UNUSED_PARAM)
 	{
 		if (multiboot_partition == 1)
 		{
-			strcpy(kernel_name, "linuxkernel");
-			strcpy(rootfs_name, "linuxrootfs");
+			// hd51, h7,... have seperate partition for rootfs1
+			strcpy(kernel_name_hd51, "linuxkernel");
+			strcpy(rootfs_name_hd51, "linuxrootfs");
+			// h17 don't have this -> so also set kernel_name, rootfs_name
+			sprintf(kernel_name, "linuxkernel%d", multiboot_partition);
+			strcpy(rootfs_name, "userdata");
 		}
 		else
 		{
@@ -165,6 +175,17 @@ gpt_list_table(int xtra UNUSED_PARAM)
 				ext4_rootfs_dev_found(disk_device, i+1);
 				found_rootfs = 1;
 			}
+			// for hd51, h7, ... search also for special rootfs and kernel names
+			if (strcmp(partname, kernel_name_hd51) == 0)
+			{
+				ext4_kernel_dev_found(disk_device, i+1);
+				found_kernel = 1;
+			}
+			if (strcmp(partname, rootfs_name_hd51) == 0)
+			{
+				ext4_rootfs_dev_found(disk_device, i+1);
+				found_rootfs = 1;
+			}
 			if ((user_kernel || user_rootfs) && (strcmp(partname, "bp30") == 0 || strcmp(partname, "bp31") == 0))
 			{
 				char dummy_device[1000];
@@ -175,6 +196,10 @@ gpt_list_table(int xtra UNUSED_PARAM)
 					my_printf("User specified device is a bp30/bp31 partition. These partitions shouldn't be used. Never!\nAborting...\n");
 					exit(EXIT_FAILURE);
 				}
+			}
+			if (found_kernel && found_rootfs)
+			{
+				return;
 			}
 		}
 	}
@@ -241,8 +266,12 @@ gpt_list_table(int xtra UNUSED_PARAM)
 	{
 		if (multiboot_partition == 1)
 		{
-			strcpy(kernel_name, "linuxkernel");
-			strcpy(rootfs_name, "linuxrootfs");
+			// hd51, h7,... have seperate partition for rootfs1
+			strcpy(kernel_name_hd51, "linuxkernel");
+			strcpy(rootfs_name_hd51, "linuxrootfs");
+			// h17 don't have this -> so also set kernel_name, rootfs_name
+			strcpy(kernel_name, current_kernel_device);
+			strcpy(rootfs_name, "userdata");
 		}
 		else
 		{
@@ -266,6 +295,15 @@ gpt_list_table(int xtra UNUSED_PARAM)
 				ext4_kernel_dev_found(disk_device, i+1);
 			}
 			if (strcmp(partname, rootfs_name) == 0)
+			{
+				ext4_rootfs_dev_found(disk_device, i+1);
+			}
+			// h17 don't have this -> so also set kernel_name, rootfs_name
+			if (strcmp(partname, kernel_name_hd51) == 0)
+			{
+				ext4_kernel_dev_found(disk_device, i+1);
+			}
+			if (strcmp(partname, rootfs_name_hd51) == 0)
 			{
 				ext4_rootfs_dev_found(disk_device, i+1);
 			}
