@@ -100,7 +100,7 @@ char *boxname = NULL;
 enum RootfsTypeEnum rootfs_type;
 int stop_e2_needed = 1;
 
-const char ofgwrite_version[] = "4.6.9";
+const char ofgwrite_version[] = "4.7.0";
 
 struct struct_mountlist
 {

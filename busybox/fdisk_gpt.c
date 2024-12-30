@@ -120,6 +120,12 @@ gpt_list_table(int xtra UNUSED_PARAM)
 	rootfs_name[0] = '\0';
 	kernel_name_hd51[0] = '\0';
 	rootfs_name_hd51[0] = '\0';
+
+	// Don't search on other disks if kernel and rootfs are already found
+	if (found_kernel && found_rootfs)
+	{
+		return;
+	}
 	if (multiboot_partition != -1 && current_rootfs_sub_dir[0] == '\0')
 	{
 		sprintf(kernel_name, "kernel%d", multiboot_partition);
@@ -176,12 +182,12 @@ gpt_list_table(int xtra UNUSED_PARAM)
 				found_rootfs = 1;
 			}
 			// for hd51, h7, ... search also for special rootfs and kernel names
-			if (strcmp(partname, kernel_name_hd51) == 0)
+			if (kernel_name_hd51[0] != '\0' && strcmp(partname, kernel_name_hd51) == 0)
 			{
 				ext4_kernel_dev_found(disk_device, i+1);
 				found_kernel = 1;
 			}
-			if (strcmp(partname, rootfs_name_hd51) == 0)
+			if (rootfs_name_hd51[0] != '\0' && strcmp(partname, rootfs_name_hd51) == 0)
 			{
 				ext4_rootfs_dev_found(disk_device, i+1);
 				found_rootfs = 1;
