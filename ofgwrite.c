@@ -100,8 +100,9 @@ char slotname[1000];
 char *boxname = NULL;
 enum RootfsTypeEnum rootfs_type;
 int stop_e2_needed = 1;
+int chroot_mode = 0;
 
-const char ofgwrite_version[] = "4.7.0";
+const char ofgwrite_version[] = "4.7.1";
 
 struct struct_mountlist
 {
@@ -1456,7 +1457,16 @@ void readProcCmdline()
 		find_store_substring(line, "root=", current_rootfs_device);
 		find_store_substring(line, "kernel=", current_kernel_device);
 		find_store_substring(line, "rootsubdir=", current_rootfs_sub_dir);
+
+		// Hack for chroot multiboot Dinobot
+		if (strstr(line, "others") != NULL && multiboot_partition != -1)
+		{
+			strncpy(current_rootfs_sub_dir, "linuxrootfs1", sizeof(current_rootfs_sub_dir) - 1);
+			chroot_mode = 1;
+			force_e2_stop = 1;
+		}
 		my_printf("Kexec mode is: %s\n", kexec_mode);
+		my_printf("Chroot mode is: %d\n", chroot_mode);
 		my_printf("Current rootfs is: %s\n", current_rootfs_device);
 		my_printf("Current kernel is: %s\n", current_kernel_device);
 		my_printf("Current root sub dir is: %s\n", current_rootfs_sub_dir);
@@ -1527,6 +1537,14 @@ void find_kernel_rootfs_device()
 			sprintf(kernel_device, "/oldroot_remount/%s%d/%s", slotname, multiboot_partition, kernel_device_arg);
 		}
 		my_printf("Using %s as kernel device\n", kernel_device);
+	}
+
+	// use chroot rootfs mode
+	if (chroot_mode == 1)
+	{
+		rootfs_flash_mode = TARBZ2;
+		my_printf("Using %s as rootfs device\n", rootfs_device);
+		sprintf(rootfs_sub_dir, "%s%d", slotname, multiboot_partition);
 	}
 
 	// use kexec kernel mode
@@ -1808,7 +1826,7 @@ int main(int argc, char *argv[])
 			if (rootfs_flash_mode == TARBZ2_MTD) // box with mtd subdir feature e.g. sfx6008
 				ret = mount(ubi_fs_name, "/oldroot_remount/", "ubifs", 0, NULL);
 			else
-				ret = mount(rootfs_device, "/oldroot_remount/", "ext4", 0, NULL);
+				ret = mount(rootfs_device, "/oldroot_remount/", rootfs_fs_type, 0, NULL);
 			if (!ret)
 				my_printf("Mount to /oldroot_remount/ successful\n");
 			else if (errno == EINVAL && rootfs_flash_mode != TARBZ2_MTD)
