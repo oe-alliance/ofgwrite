@@ -905,6 +905,12 @@ int readProcMounts()
 			rootfs_type = JFFS2;
 		}
 		else if (strcmp(mountEntry->mnt_dir, "/") == 0
+			  && strcmp(mountEntry->mnt_type, "ext3") == 0)
+		{
+			my_printf("Found EXT3 rootfs\n");
+			rootfs_type = EXT4;
+		}
+		else if (strcmp(mountEntry->mnt_dir, "/") == 0
 			  && strcmp(mountEntry->mnt_type, "ext4") == 0)
 		{
 			my_printf("Found EXT4 rootfs\n");
