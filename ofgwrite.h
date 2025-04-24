@@ -24,7 +24,7 @@ void handle_busybox_fatal_error();
 
 enum RootfsTypeEnum
 {
-	UNKNOWN, UBIFS, JFFS2, EXT4
+	UNKNOWN, UBIFS, JFFS2, EXT4, EXT3
 };
 
 enum FlashModeTypeEnum

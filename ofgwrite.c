@@ -66,6 +66,7 @@ char rootfs_device_arg[1000];
 char kernel_device[1000];
 char rootfs_device[1000];
 char rootfs_sub_dir[1000];
+const char * rootfs_fs_type;
 
 int found_kernel_device;
 int found_rootfs_device;
@@ -908,13 +909,15 @@ int readProcMounts()
 			  && strcmp(mountEntry->mnt_type, "ext3") == 0)
 		{
 			my_printf("Found EXT3 rootfs\n");
-			rootfs_type = EXT4;
+			rootfs_type = EXT3;
+			rootfs_fs_type = "ext3";
 		}
 		else if (strcmp(mountEntry->mnt_dir, "/") == 0
 			  && strcmp(mountEntry->mnt_type, "ext4") == 0)
 		{
 			my_printf("Found EXT4 rootfs\n");
 			rootfs_type = EXT4;
+			rootfs_fs_type = "ext4";
 		}
 		// check newroot
 		else if (strcmp(mountEntry->mnt_dir, "/newroot") == 0
@@ -1347,7 +1350,7 @@ int umount_rootfs(int steps)
 	if (rootfs_flash_mode == TARBZ2 || rootfs_flash_mode == TARBZ2_MTD)
 	{
 		if (rootfs_flash_mode == TARBZ2)
-			ret = mount(rootfs_device, "/oldroot_remount/", "ext4", 0, NULL);
+			ret = mount(rootfs_device, "/oldroot_remount/", rootfs_fs_type, 0, NULL);
 		else
 			ret = mount(ubi_fs_name, "/oldroot_remount/", "ubifs", 0, NULL);
 		if (!ret)
