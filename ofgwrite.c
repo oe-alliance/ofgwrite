@@ -1459,7 +1459,7 @@ void readProcCmdline()
 		find_store_substring(line, "rootsubdir=", current_rootfs_sub_dir);
 
 		// Hack for chroot multiboot Dinobot
-		if (strstr(line, "others") != NULL && multiboot_partition != -1)
+		if ((strstr(line, "others") != NULL || strstr(line, "other2") != NULL) && multiboot_partition != -1)
 		{
 			strncpy(current_rootfs_sub_dir, "linuxrootfs1", sizeof(current_rootfs_sub_dir) - 1);
 			chroot_mode = 1;
