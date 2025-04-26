@@ -1458,13 +1458,20 @@ void readProcCmdline()
 		find_store_substring(line, "kernel=", current_kernel_device);
 		find_store_substring(line, "rootsubdir=", current_rootfs_sub_dir);
 
-		// Hack for chroot multiboot Dinobot
-		if ((strstr(line, "others") != NULL || strstr(line, "other2") != NULL) && multiboot_partition != -1)
+		boxname = ReadProcEntry("/proc/stb/info/model");
+		if ((strstr(line, "others") != NULL ||
+			strstr(line, "other2") != NULL ||
+			strstr(boxname, "dm820") != NULL || 
+			strstr(boxname, "dm7080") != NULL || 
+			strstr(boxname, "dm900") != NULL || 
+			strstr(boxname, "dm920") != NULL)
+			&& multiboot_partition != -1) 
 		{
 			strncpy(current_rootfs_sub_dir, "linuxrootfs1", sizeof(current_rootfs_sub_dir) - 1);
 			chroot_mode = 1;
 			force_e2_stop = 1;
 		}
+
 		my_printf("Kexec mode is: %s\n", kexec_mode);
 		my_printf("Chroot mode is: %d\n", chroot_mode);
 		my_printf("Current rootfs is: %s\n", current_rootfs_device);
