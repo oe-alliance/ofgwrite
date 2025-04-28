@@ -73,6 +73,8 @@ int found_rootfs_device;
 int user_kernel;
 int user_rootfs;
 int user_slotname;
+int user_currentslotcode;
+int currentslotcode;
 int rootsubdir_check;
 int multiboot_partition;
 char kexec_mode[1000];
@@ -100,7 +102,7 @@ char slotname[1000];
 char *boxname = NULL;
 enum RootfsTypeEnum rootfs_type;
 int stop_e2_needed = 1;
-int chroot_mode = 0;
+int chkroot_mode = 0;
 
 const char ofgwrite_version[] = "4.7.1";
 
@@ -370,20 +372,21 @@ void printUsage()
 {
 	my_printf("Usage: ofgwrite <parameter> <image_directory>\n");
 	my_printf("Options:\n");
-	my_printf("   -a --android          create Android boot image header\n");
-	my_printf("   -k --kernel           flash kernel with automatic device recognition(default)\n");
-	my_printf("   -kmtdx --kernel=mtdx  use mtdx device for kernel flashing\n");
-	my_printf("   -ksdx --kernel=sdx    use sdx device for kernel flashing\n");
+	my_printf("   -a --android           create Android boot image header\n");
+	my_printf("   -cNN --currentslot=NN  user defined current slot name\n");
+	my_printf("   -k --kernel            flash kernel with automatic device recognition(default)\n");
+	my_printf("   -kmtdx --kernel=mtdx   use mtdx device for kernel flashing\n");
+	my_printf("   -ksdx --kernel=sdx     use sdx device for kernel flashing\n");
 	my_printf("   -kmmcblkxpx --kernel=mmcblkxpx  use mmcblkxpx device for kernel flashing\n");
-	my_printf("   -r --rootfs           flash rootfs with automatic device recognition(default)\n");
-	my_printf("   -rmtdy --rootfs=mtdy  use mtdy device for rootfs flashing\n");
+	my_printf("   -r --rootfs            flash rootfs with automatic device recognition(default)\n");
+	my_printf("   -rmtdy --rootfs=mtdy   use mtdy device for rootfs flashing\n");
 	my_printf("   -rmmcblkxpx --rootfs=mmcblkxpx  use mmcblkxpx device for rootfs flashing\n");
-	my_printf("   -sNN --slotname=NN    user defined slot name\n");
-	my_printf("   -mx --multi=x         flash multiboot partition x (x= 1, 2, 3,...). Only supported by some boxes.\n");
-	my_printf("   -n --nowrite          show only found image and mtd partitions (no write)\n");
-	my_printf("   -f --force            force kill e2\n");
-	my_printf("   -q --quiet            show less output\n");
-	my_printf("   -h --help             show help\n");
+	my_printf("   -sNN --slotname=NN     user defined slot name\n");
+	my_printf("   -mx --multi=x          flash multiboot partition x (x= 1, 2, 3,...). Only supported by some boxes.\n");
+	my_printf("   -n --nowrite           show only found image and mtd partitions (no write)\n");
+	my_printf("   -f --force             force kill e2\n");
+	my_printf("   -q --quiet             show less output\n");
+	my_printf("   -h --help              show help\n");
 }
 
 char* ReadProcEntry(char *filename)
@@ -494,24 +497,27 @@ int read_args(int argc, char *argv[])
 	int opt;
 	char *endptr;
 	long val;
-	static const char *short_options = "ak::r::ns:m:fqh";
+	static const char *short_options = "ac::k::r::ns:m:fqh";
 	static const struct option long_options[] = {
-												{"android"  , no_argument, NULL, 'a'},
-												{"kernel"    , optional_argument, NULL, 'k'},
-												{"rootfs"    , optional_argument, NULL, 'r'},
-												{"nowrite"   , no_argument      , NULL, 'n'},
-												{"slotname"  , required_argument, NULL, 's'},
-												{"multi"     , required_argument, NULL, 'm'},
-												{"force"     , no_argument      , NULL, 'f'},
-												{"quiet"     , no_argument      , NULL, 'q'},
-												{"help"      , no_argument      , NULL, 'h'},
-												{NULL        , no_argument      , NULL,  0} };
+												{"android"      , no_argument, NULL, 'a'},
+												{"currentslot"  , optional_argument, NULL, 'c'},
+												{"kernel"       , optional_argument, NULL, 'k'},
+												{"rootfs"       , optional_argument, NULL, 'r'},
+												{"nowrite"      , no_argument      , NULL, 'n'},
+												{"slotname"     , required_argument, NULL, 's'},
+												{"multi"        , required_argument, NULL, 'm'},
+												{"force"        , no_argument      , NULL, 'f'},
+												{"quiet"        , no_argument      , NULL, 'q'},
+												{"help"         , no_argument      , NULL, 'h'},
+												{NULL           , no_argument      , NULL,  0} };
 
 	strcpy(slotname, "linuxrootfs");
+	currentslotcode = 1;
 	multiboot_partition = -1;
 	user_kernel = 0;
 	user_rootfs = 0;
 	user_slotname = 0;
+	user_currentslotcode = 0;
 	android = 0;
 	rootsubdir_check = 0;
 
@@ -523,6 +529,13 @@ int read_args(int argc, char *argv[])
 				boxname = ReadProcEntry("/proc/stb/info/model");
 				my_printf("Boxname detectet: %s\n", boxname);
 				android = 1;
+				break;
+			case 'c':
+				if (optarg) {
+					my_printf("Using user defined current slot code: %s\n", optarg);
+					currentslotcode = atoi(optarg);
+					user_currentslotcode = 1;
+				}
 				break;
 			case 'k':
 				flash_kernel = 1;
@@ -1464,16 +1477,28 @@ void readProcCmdline()
 			strstr(boxname, "dm820") != NULL || 
 			strstr(boxname, "dm7080") != NULL || 
 			strstr(boxname, "dm900") != NULL || 
-			strstr(boxname, "dm920") != NULL)
-			&& multiboot_partition != -1) 
+			strstr(boxname, "dm920") != NULL ||
+			user_currentslotcode == 1)
+			&& multiboot_partition != -1)  
 		{
-			strncpy(current_rootfs_sub_dir, "linuxrootfs1", sizeof(current_rootfs_sub_dir) - 1);
-			chroot_mode = 1;
-			force_e2_stop = 1;
+			snprintf(current_rootfs_sub_dir, sizeof(current_rootfs_sub_dir), "%s%d", slotname, currentslotcode);
+			chkroot_mode = 1;
+			my_printf("Detected slot number from currentslotcode: %d\n", currentslotcode);
+			my_printf("Current multiboot partition: %d\n", multiboot_partition);
+			if (user_currentslotcode == 0) {
+				force_e2_stop = 1;
+				my_printf("Force E2 stop: ENABLED (default currentslot)\n");
+			} else if (currentslotcode == multiboot_partition) {
+				force_e2_stop = 1;
+				my_printf("Force E2 stop: ENABLED\n");
+			} else {
+				force_e2_stop = 0;
+				my_printf("Force E2 stop: DISABLED\n");
+			}
 		}
 
 		my_printf("Kexec mode is: %s\n", kexec_mode);
-		my_printf("Chroot mode is: %d\n", chroot_mode);
+		my_printf("Chkroot mode is: %d\n", chkroot_mode);
 		my_printf("Current rootfs is: %s\n", current_rootfs_device);
 		my_printf("Current kernel is: %s\n", current_kernel_device);
 		my_printf("Current root sub dir is: %s\n", current_rootfs_sub_dir);
@@ -1546,8 +1571,8 @@ void find_kernel_rootfs_device()
 		my_printf("Using %s as kernel device\n", kernel_device);
 	}
 
-	// use chroot rootfs mode
-	if (chroot_mode == 1)
+	// use chkroot rootfs mode
+	if (chkroot_mode == 1)
 	{
 		rootfs_flash_mode = TARBZ2;
 		my_printf("Using %s as rootfs device\n", rootfs_device);
