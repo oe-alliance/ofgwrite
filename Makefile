@@ -1,6 +1,9 @@
-SRC = flash_erase.c nandwrite.c ofgwrite.c ubiformat.c ubiutils-common.c libubigen.c libscan.c libubi.c flashcp.c ubidetach.c ubiupdatevol.c fb.c flash_ubi_jffs2.c flash_ext4.c cmdline_parser.c
+SRC = flash_erase.c nandwrite.c ofgwrite.c ubiformat.c ubiattach.c ubiutils-common.c libubigen.c libscan.c libubi.c flashcp.c ubidetach.c ubiupdatevol.c fb.c flash_ubi_jffs2.c flash_ext4.c cmdline_parser.c
 
 SRC_BUSYBOX= busybox/fdisk.c \
+	busybox/cp.c \
+	busybox/cp_mv_stat.c \
+	busybox/losetup.c \
 	busybox/fdisk_gpt.c \
 	busybox/fuser.c \
 	busybox/ps.c \
@@ -25,21 +28,25 @@ SRC_BUSYBOX= busybox/fdisk.c \
 	busybox/libarchive/seek_by_read.c \
 	busybox/libarchive/unsafe_prefix.c \
 	busybox/libbb/appletlib.c \
+	busybox/libbb/ask_confirmation.c \
 	busybox/libbb/auto_string.c \
 	busybox/libbb/bb_strtonum.c \
 	busybox/libbb/compare_string_array.c \
 	busybox/libbb/concat_path_file.c \
 	busybox/libbb/concat_subpath_file.c \
 	busybox/libbb/copyfd.c \
+	busybox/libbb/copy_file.c \
 	busybox/libbb/crc32.c \
 	busybox/libbb/default_error_retval.c \
 	busybox/libbb/full_write.c \
 	busybox/libbb/getopt32.c \
 	busybox/libbb/get_last_path_component.c \
 	busybox/libbb/human_readable.c \
+	busybox/libbb/inode_hash.c \
 	busybox/libbb/last_char_is.c \
 	busybox/libbb/lineedit.c \
 	busybox/libbb/llist.c \
+	busybox/libbb/loop.c \
 	busybox/libbb/makedev.c \
 	busybox/libbb/make_directory.c \
 	busybox/libbb/messages.c \
@@ -80,7 +87,7 @@ LIBOBJ = $(LIBSRC:.c=.o)
 OUT_LIB = ./lib/libmtd.a
 
 CFLAGS ?= -O2
-CFLAGS += -I./include -I./busybox/include -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
+CFLAGS += -I./include -I./busybox/include -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -Wno-error=implicit-function-declaration
 
 CC ?= gcc
 AR ?= ar

@@ -2,7 +2,7 @@
  * Automatically generated C config: don't edit
  * Busybox version: 1.24.1
  */
-#define AUTOCONF_TIMESTAMP "2023-05-27 10:50:16 CEST"
+#define AUTOCONF_TIMESTAMP "2025-06-02 16:08:45 CEST"
 
 #define CONFIG_HAVE_DOT_CONFIG 1
 #define ENABLE_HAVE_DOT_CONFIG 1
@@ -708,14 +708,14 @@
 #define ENABLE_LZOP_COMPR_HIGH 0
 #define IF_LZOP_COMPR_HIGH(...)
 #define IF_NOT_LZOP_COMPR_HIGH(...) __VA_ARGS__
-#undef CONFIG_RPM2CPIO
-#define ENABLE_RPM2CPIO 0
-#define IF_RPM2CPIO(...)
-#define IF_NOT_RPM2CPIO(...) __VA_ARGS__
 #undef CONFIG_RPM
 #define ENABLE_RPM 0
 #define IF_RPM(...)
 #define IF_NOT_RPM(...) __VA_ARGS__
+#undef CONFIG_RPM2CPIO
+#define ENABLE_RPM2CPIO 0
+#define IF_RPM2CPIO(...)
+#define IF_NOT_RPM2CPIO(...) __VA_ARGS__
 #define CONFIG_TAR 1
 #define ENABLE_TAR 1
 #ifdef MAKE_SUID
@@ -952,14 +952,22 @@
 #define ENABLE_COMM 0
 #define IF_COMM(...)
 #define IF_NOT_COMM(...) __VA_ARGS__
-#undef CONFIG_CP
-#define ENABLE_CP 0
-#define IF_CP(...)
-#define IF_NOT_CP(...) __VA_ARGS__
-#undef CONFIG_FEATURE_CP_LONG_OPTIONS
-#define ENABLE_FEATURE_CP_LONG_OPTIONS 0
-#define IF_FEATURE_CP_LONG_OPTIONS(...)
-#define IF_NOT_FEATURE_CP_LONG_OPTIONS(...) __VA_ARGS__
+#define CONFIG_CP 1
+#define ENABLE_CP 1
+#ifdef MAKE_SUID
+# define IF_CP(...) __VA_ARGS__ "CONFIG_CP"
+#else
+# define IF_CP(...) __VA_ARGS__
+#endif
+#define IF_NOT_CP(...)
+#define CONFIG_FEATURE_CP_LONG_OPTIONS 1
+#define ENABLE_FEATURE_CP_LONG_OPTIONS 1
+#ifdef MAKE_SUID
+# define IF_FEATURE_CP_LONG_OPTIONS(...) __VA_ARGS__ "CONFIG_FEATURE_CP_LONG_OPTIONS"
+#else
+# define IF_FEATURE_CP_LONG_OPTIONS(...) __VA_ARGS__
+#endif
+#define IF_NOT_FEATURE_CP_LONG_OPTIONS(...)
 #undef CONFIG_CUT
 #define ENABLE_CUT 0
 #define IF_CUT(...)
@@ -1332,10 +1340,18 @@
 # define IF_FEATURE_VERBOSE(...) __VA_ARGS__
 #endif
 #define IF_NOT_FEATURE_VERBOSE(...)
-#undef CONFIG_FEATURE_PRESERVE_HARDLINKS
-#define ENABLE_FEATURE_PRESERVE_HARDLINKS 0
-#define IF_FEATURE_PRESERVE_HARDLINKS(...)
-#define IF_NOT_FEATURE_PRESERVE_HARDLINKS(...) __VA_ARGS__
+
+/*
+ * Common options for cp and mv
+ */
+#define CONFIG_FEATURE_PRESERVE_HARDLINKS 1
+#define ENABLE_FEATURE_PRESERVE_HARDLINKS 1
+#ifdef MAKE_SUID
+# define IF_FEATURE_PRESERVE_HARDLINKS(...) __VA_ARGS__ "CONFIG_FEATURE_PRESERVE_HARDLINKS"
+#else
+# define IF_FEATURE_PRESERVE_HARDLINKS(...) __VA_ARGS__
+#endif
+#define IF_NOT_FEATURE_PRESERVE_HARDLINKS(...)
 #undef CONFIG_FEATURE_AUTOWIDTH
 #define ENABLE_FEATURE_AUTOWIDTH 0
 #define IF_FEATURE_AUTOWIDTH(...)
@@ -2380,10 +2396,14 @@
 #define ENABLE_IPCS 0
 #define IF_IPCS(...)
 #define IF_NOT_IPCS(...) __VA_ARGS__
-#undef CONFIG_LOSETUP
-#define ENABLE_LOSETUP 0
-#define IF_LOSETUP(...)
-#define IF_NOT_LOSETUP(...) __VA_ARGS__
+#define CONFIG_LOSETUP 1
+#define ENABLE_LOSETUP 1
+#ifdef MAKE_SUID
+# define IF_LOSETUP(...) __VA_ARGS__ "CONFIG_LOSETUP"
+#else
+# define IF_LOSETUP(...) __VA_ARGS__
+#endif
+#define IF_NOT_LOSETUP(...)
 #undef CONFIG_LSPCI
 #define ENABLE_LSPCI 0
 #define IF_LSPCI(...)
