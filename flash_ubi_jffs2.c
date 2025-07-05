@@ -12,6 +12,8 @@
 #include <libmtd.h>
 #include <errno.h>
 #include <mtd/mtd-abi.h>
+#include <sys/mount.h>
+#include <dirent.h>
 
 
 int getFlashType(char* device)
@@ -125,9 +127,13 @@ int ubi_write(char* device, char* filename, int quiet, int no_write)
 	return 1;
 }
 
-int ubi_detach_dev(char* device, int quiet, int no_write)
+int ubi_detach_dev(unsigned int mtd_device, int quiet, int no_write)
 {
 	optind = 0; // reset getopt_long
+	char device[100];
+
+	snprintf(device, sizeof(device), "/dev/mtd%u", mtd_device);
+
 	char* argv[] = {
 		"ubidetach",	// program name
 		"-p",			// path to device
@@ -139,6 +145,35 @@ int ubi_detach_dev(char* device, int quiet, int no_write)
 	my_printf("Detach rootfs: ubidetach -p %s\n", device);
 	if (!no_write)
 		if (ubidetach_main(argc, argv) != 0)
+			return 0;
+
+	return 1;
+}
+
+int ubi_attach_ofgwrite(unsigned int mtd_device, unsigned int vid_offset, int quiet, int no_write)
+{
+	optind = 0; // reset getopt_long
+	char mtd_device_str[100];
+	char vid_offset_str[100];
+
+	snprintf(mtd_device_str, sizeof(mtd_device_str), "%u", mtd_device);
+	snprintf(vid_offset_str, sizeof(vid_offset_str), "%u", vid_offset);
+
+	char* argv[] = {
+		"ubiattach",	// program name
+		"-d",			// ubi device number: use high hopefully unused number
+		"10",
+		"-m",			// mtd device number
+		mtd_device_str,
+		"-O",			// VID header offset
+		vid_offset_str,
+		NULL
+	};
+	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
+
+	my_printf("Attach ubi: ubiattach -d 10 -m %u -O %u\n", mtd_device, vid_offset);
+	if (!no_write)
+		if (ubiattach_main(argc, argv) != 0)
 			return 0;
 
 	return 1;
@@ -242,6 +277,515 @@ int flash_ubi_jffs2_rootfs(char* device, char* filename, enum RootfsTypeEnum roo
 	{
 		my_fprintf(stderr, "Flash type \"%d\" in combination with rootfs type %d is not supported\n", type, rootfs_type);
 		return 0;
+	}
+
+	return 1;
+}
+
+int setup_loop_device(const char* image, int quiet)
+{
+	optind = 0; // reset getopt_long
+	char* argv[] = {
+		"losetup",		// program name
+		"-r",			// read-only
+		"-f",			// use next available loop device
+		image,			// ubi image filename
+		NULL
+	};
+	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
+
+	if (!quiet)
+		my_printf("Setup loop device: losetup -f %s\n", image);
+	if (losetup_main(argc, argv) != 0)
+		return 0;
+
+	return 1;
+}
+
+int release_loop_device(int quiet)
+{
+	optind = 0; // reset getopt_long
+	char* argv[] = {
+		"losetup",			// program name
+		"-d",				// use next available loop device
+		ubi_loop_device,	// loop device
+		NULL
+	};
+	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
+
+	if (!quiet)
+		my_printf("Release loop device: losetup -d %s\n", ubi_loop_device);
+	if (losetup_main(argc, argv) != 0)
+		return 0;
+
+	return 1;
+}
+
+int get_erasesize_and_writesize(unsigned int* erasesize, unsigned int* writesize, int quiet)
+{
+	// get erasesize and writesize from mtd0 device (has to be the same for the image file)
+	char sysfs_path[256];
+	FILE *fp;
+	int ret;
+
+	// Try Linux 4.x path first
+	snprintf(sysfs_path, sizeof(sysfs_path), "/sys/class/mtd/mtd0/erasesize");
+	fp = fopen(sysfs_path, "r");
+	if (!fp)
+	{
+		// Try Linux 3.x path
+		snprintf(sysfs_path, sizeof(sysfs_path), "/sys/devices/virtual/mtd/mtd0/erasesize");
+		fp = fopen(sysfs_path, "r");
+	}
+
+	if (fp)
+	{
+		ret = fscanf(fp, "%u", erasesize);
+		fclose(fp);
+	}
+	else
+		return 0;
+
+	// Try Linux 4.x path first for writesize
+	snprintf(sysfs_path, sizeof(sysfs_path), "/sys/class/mtd/mtd0/writesize");
+	fp = fopen(sysfs_path, "r");
+	if (!fp)
+	{
+		// Try Linux 3.x path
+		snprintf(sysfs_path, sizeof(sysfs_path), "/sys/devices/virtual/mtd/mtd0/writesize");
+		fp = fopen(sysfs_path, "r");
+	}
+
+	if (fp)
+	{
+		ret = fscanf(fp, "%u", writesize);
+		fclose(fp);
+	}
+	else
+		return 0;
+
+	if (!quiet)
+		my_printf("Found erasezise 0x%x and writesize 0x%x\n", *erasesize, *writesize);
+	return 1;
+}
+
+int setup_block2mtd(const char* ubi_loop_device, unsigned int erasesize, unsigned int writesize)
+{
+	FILE *fp;
+	char cmd[1000];
+
+	my_printf("Setup block2mtd: ");
+
+	fp = fopen("/sys/module/block2mtd/parameters/block2mtd", "w");
+	if (!fp)
+	{
+		my_printf("Failed\n");
+		return 0;
+	}
+
+	if (fprintf(fp, "%s,0x%x,0x%x", ubi_loop_device, erasesize, writesize) < 0)
+	{
+		my_printf("Failed\n");
+		fclose(fp);
+		return 0;
+	}
+
+	my_printf("Success\n");
+	fclose(fp);
+	return 1;
+}
+
+int remove_block2mtd(const char* ubi_loop_device)
+{
+	FILE *fp;
+	char cmd[1000];
+
+	fp = fopen("/sys/module/block2mtd/parameters/block2mtd", "w");
+	if (!fp)
+	{
+		return 0;
+	}
+
+	if (fprintf(fp, "%s,remove", ubi_loop_device) < 0)
+	{
+		fclose(fp);
+		return 0;
+	}
+
+	fclose(fp);
+	return 1;
+}
+
+int detect_vid_offset(const char* ubi_loop_device, unsigned int* vid_offset)
+{
+	FILE *fp;
+	char buffer[4];
+	int pos = 0;
+	int ret;
+
+	my_printf("Detecting VID Offset: ");
+
+	fp = fopen(ubi_loop_device, "rb");
+	if (!fp)
+	{
+		my_printf("Failed\n");
+		return 0;
+	}
+
+	// find "UBI!"
+	while (!feof(fp))
+	{
+		if (fgetc(fp) == 'U')
+		{
+			ret = fread(buffer, 3, 1, fp);
+			if (ret == 1 && strcmp(buffer, "BI!") == 0)
+			{
+				*vid_offset = pos + 3;
+				fclose(fp);
+				my_printf("Found offset 0x%x\n", *vid_offset);
+				return 1;
+			}
+		}
+		pos++;
+	}
+	my_printf("Failed\n");
+	fclose(fp);
+	return 0;
+}
+
+int detect_mtd_device(const char* ubi_loop_device, unsigned int* mtd_device)
+{
+	int err;
+	libmtd_t libmtd;
+	struct mtd_info mtd_info;
+	struct mtd_dev_info mtd;
+	char mtd_name[100];
+
+	my_printf("Detecting new mtd device: ");
+
+	snprintf(mtd_name, sizeof(mtd_name), "block2mtd: %s", ubi_loop_device);
+
+	libmtd = libmtd_open();
+	if (libmtd == NULL)
+	{
+		my_printf("Failed\n");
+		return 0;
+	}
+
+	err = mtd_get_info(libmtd, &mtd_info);
+	if (err)
+	{
+		my_printf("Failed\n");
+		libmtd_close(libmtd);
+		return 0;
+	}
+
+	for (int i = mtd_info.lowest_mtd_num; i <= mtd_info.highest_mtd_num; i++)
+	{
+		if (!mtd_dev_present(libmtd, i))
+			continue;
+		err = mtd_get_dev_info1(libmtd, i, &mtd);
+		if (err)
+			continue;
+
+		if (strcmp(mtd.name, mtd_name) == 0)
+		{
+			my_printf("Found mtd%d\n", i);
+			*mtd_device = i;
+			return 1;
+		}
+	}
+
+	my_printf("Failed\n");
+	libmtd_close(libmtd);
+	return 0;
+}
+
+int extract_rootfs_from_nfi(const char* image, unsigned int writesize, int quiet)
+{
+	FILE *fp, *out;
+	int ret;
+	char buffer[10000];
+	unsigned long totalsize, size, pos, partition;
+
+	// rootfs image contains ecc data which needs to be removed
+	unsigned int readbytes = (writesize / 32) + writesize;
+	unsigned int writebytes = writesize;
+
+	my_printf("Extracting rootfs from NFI\n");
+
+	if (writesize > 5000)
+	{
+		my_printf("Not supported writesize %d\n", writesize);
+		return 0;
+	}
+
+	fp = fopen(image, "rb");
+	if (!fp)
+	{
+		my_printf("Failed to open nfi image\n");
+		return 0;
+	}
+
+	// read nfi header
+	ret = fread(buffer, 32, 1, fp);
+
+	// check header
+	if (ret != 1 || strncmp(buffer, "NFI", 3) != 0)
+	{
+		my_printf("Wrong NFI header\n");
+		return 0;
+	}
+
+	// read totalsize
+	ret = fread(buffer, 4, 1, fp);
+	totalsize = (buffer[0] << 24) + (buffer[1] << 16) + (buffer[2] << 8) + buffer[3] + 36;
+	if (ret != 1 && totalsize < 1000000)
+	{
+		my_printf("Wrong NFI header size\n");
+		return 0;
+	}
+	my_printf("NFI header size %lu", totalsize);
+
+	partition = 0;
+	pos = 32 + 4;
+
+	// read partitions
+	while (pos < totalsize)
+	{
+		// read size
+		ret = fread(buffer, 4, 1, fp);
+		if (ret != 1)
+		{
+			my_printf("NFI fread error");
+			break;
+		}
+		size = (buffer[0] << 24) + (buffer[1] << 16) + (buffer[2] << 8) + buffer[3];
+		if (partition != 3)
+		{	// skip
+			ret = fseek(fp, size, SEEK_CUR);
+			pos += size + 4;
+			if (ret != 0)
+			{
+				my_printf("NFI fseek error");
+				break;
+			}
+		}
+		else
+		{	// rootfs img
+			pos += 4;
+			unsigned int part_end = pos + size;
+			FILE* fout = fopen("./b.out", "wb");
+			if (!fout)
+			{
+				my_printf("NFI failed to open output file\n");
+				break;
+			}
+			while (pos < part_end)
+			{
+				ret = fread(buffer, readbytes, 1, fp);
+				ret += fwrite(buffer, writebytes, 1, fout);
+				if (ret != 2)
+				{
+					my_printf("NFI read/write failed\n");
+					fclose(fout);
+					fclose(fp);
+					return 0;
+				}
+				pos += readbytes;
+			}
+			fclose(fout);
+			fclose(fp);
+			return 1;
+		}
+		partition++;
+	}
+	fclose(fp);
+	return 0;
+}
+
+int mount_ubi_image(const char* image, char* ubi_mount_path, int quiet, int no_write)
+{
+	unsigned int erasesize;
+	unsigned int writesize;
+	unsigned int vid_offset;
+	int ret;
+
+	my_printf("Mounting rootfs ubi image\n");
+	if (no_write)
+		return 1;
+
+	if (!get_erasesize_and_writesize(&erasesize, &writesize, quiet))
+	{
+		release_loop_device(quiet);
+		return 0;
+	}
+
+	if (strcmp(image + strlen(image) - 4, ".nfi") == 0)
+	{
+		// nfi entpacken!
+	}
+
+	if (!setup_loop_device(image, quiet))
+		return 0;
+
+	if (!setup_block2mtd(ubi_loop_device, erasesize, writesize))
+	{
+		release_loop_device(quiet);
+		return 0;
+	}
+
+	if (!detect_vid_offset(ubi_loop_device, &vid_offset))
+	{
+		remove_block2mtd(ubi_loop_device);
+		release_loop_device(quiet);
+		return 0;
+	}
+
+	if (!detect_mtd_device(ubi_loop_device, &loop_mtd_device))
+	{
+		remove_block2mtd(ubi_loop_device);
+		release_loop_device(quiet);
+		return 0;
+	}
+
+	if (!ubi_attach_ofgwrite(loop_mtd_device, vid_offset, quiet, no_write))
+	{
+		remove_block2mtd(ubi_loop_device);
+		release_loop_device(quiet);
+		return 0;
+	}
+
+	if (mount("/dev/ubi10_0", ubi_mount_path, "ubifs", MS_RDONLY, NULL) < 0)
+	{
+		ubi_detach_dev(loop_mtd_device, quiet, no_write);
+		remove_block2mtd(ubi_loop_device);
+		release_loop_device(quiet);
+		return 0;
+	}
+
+	return 1;
+}
+
+int umount_ubi_image(char* ubi_mount_path, int quiet, int no_write)
+{
+	int ret;
+
+	my_printf("Unmounting rootfs ubi image\n");
+	if (no_write)
+		return 1;
+
+	ret = umount(ubi_mount_path);
+	ret = ubi_detach_dev(loop_mtd_device, quiet, no_write);
+	ret = remove_block2mtd(ubi_loop_device);
+	ret = release_loop_device(quiet);
+
+	return 1;
+}
+
+int cp_busybox(char* source, char* target, int quiet, int no_write)
+{
+	optind = 0; // reset getopt_long
+	char* argv[] = {
+		"cp",		// program name
+		"-a",		// recursive, preserve symlinks and file attributes
+		source,		// source directory
+		target,		// target directory
+		NULL
+	};
+	int argc = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
+
+	if (!no_write)
+		if (cp_main(argc, argv) != 0)
+			return 0;
+
+	return 1;
+}
+
+int cp_rootfs(char* source, char* target, int quiet, int no_write)
+{
+	DIR *dp;
+	struct dirent *d;
+	char new_source[1000];
+
+	if (!quiet)
+		my_printf("Copy rootfs: cp -a -f %s %s\n", source, target);
+	if (no_write)
+		return 1;
+
+	dp = opendir(source);
+	if (dp == NULL)
+	{
+		my_printf("cp_rootfs: Failed to open source dir\n");
+		return 0;
+	}
+
+	while ((d = readdir(dp)) != NULL)
+	{
+		strcpy(new_source, source);
+		strcat(new_source, d->d_name);
+
+		if (strcmp(d->d_name, ".") == 0
+		 || strcmp(d->d_name, "..") == 0)
+			continue;
+
+		//my_printf("copying subdir %s to %s\n", new_source, target);
+		if (!cp_busybox(new_source, target, quiet, no_write))
+		{
+			closedir(dp);
+			return 0;
+		}
+	}
+	closedir(dp);
+	return 1;
+}
+
+int flash_ubi_loop_subdir(char* filename, int quiet, int no_write)
+{
+	int ret;
+	char rootfs_path[1000];
+	char ubi_mount_path[1000];
+
+	strcpy(rootfs_path, "/oldroot_remount/");
+	strcat(rootfs_path, rootfs_sub_dir);
+	strcat(rootfs_path, "/");
+
+	strcpy(ubi_mount_path, "/ubi_mount/");
+	if (!no_write)
+	{
+		mkdir(ubi_mount_path, 777);
+	}
+
+	if (!mount_ubi_image(filename, ubi_mount_path, quiet, no_write))
+	{
+		umount_ubi_image(ubi_mount_path, quiet, no_write);
+		return 0;
+	}
+
+	set_step("Deleting rootfs");
+	if (!no_write)
+	{
+		ret = rm_rootfs(rootfs_path, quiet, no_write); // ignore return value as it always fails, because oldroot_remount cannot be removed
+	}
+
+	if (!no_write)
+	{
+		mkdir(rootfs_path, 777);
+	}
+	set_step("Copying rootfs");
+	if (!cp_rootfs(ubi_mount_path, rootfs_path, quiet, no_write))
+	{
+		umount_ubi_image(ubi_mount_path, quiet, no_write);
+		if (!no_write)
+		{
+			rmdir(ubi_mount_path);
+		}
+		return 0;
+	}
+	umount_ubi_image(ubi_mount_path, quiet, no_write);
+	if (!no_write)
+	{
+		rmdir(ubi_mount_path);
 	}
 
 	return 1;
