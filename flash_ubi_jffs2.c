@@ -297,7 +297,10 @@ int setup_loop_device(const char* image, int quiet)
 	if (!quiet)
 		my_printf("Setup loop device: losetup -f %s\n", image);
 	if (losetup_main(argc, argv) != 0)
+	{
+		my_fprintf(stderr, "Error in setup losetup!\n");
 		return 0;
+	}
 
 	return 1;
 }
@@ -316,7 +319,10 @@ int release_loop_device(int quiet)
 	if (!quiet)
 		my_printf("Release loop device: losetup -d %s\n", ubi_loop_device);
 	if (losetup_main(argc, argv) != 0)
+	{
+		my_fprintf(stderr, "Error in releasing losetup!\n");
 		return 0;
+	}
 
 	return 1;
 }
@@ -344,7 +350,10 @@ int get_erasesize_and_writesize(unsigned int* erasesize, unsigned int* writesize
 		fclose(fp);
 	}
 	else
+	{
+		my_fprintf(stderr, "Error: Virtual erasesize sys file not present!\n");
 		return 0;
+	}
 
 	// Try Linux 4.x path first for writesize
 	snprintf(sysfs_path, sizeof(sysfs_path), "/sys/class/mtd/mtd0/writesize");
@@ -362,7 +371,10 @@ int get_erasesize_and_writesize(unsigned int* erasesize, unsigned int* writesize
 		fclose(fp);
 	}
 	else
+	{
+		my_fprintf(stderr, "Error: Virtual writesize sys file not present!\n");
 		return 0;
+	}
 
 	if (!quiet)
 		my_printf("Found erasezise 0x%x and writesize 0x%x\n", *erasesize, *writesize);
@@ -409,6 +421,7 @@ int remove_block2mtd(const char* ubi_loop_device)
 	if (fprintf(fp, "%s,remove", ubi_loop_device) < 0)
 	{
 		fclose(fp);
+		my_fprintf(stderr, "Error: Remove block2mtd!\n");
 		return 0;
 	}
 
@@ -428,7 +441,7 @@ int detect_vid_offset(const char* ubi_loop_device, unsigned int* vid_offset)
 	fp = fopen(ubi_loop_device, "rb");
 	if (!fp)
 	{
-		my_printf("Failed\n");
+		my_printf("Failed open device\n");
 		return 0;
 	}
 
@@ -448,7 +461,7 @@ int detect_vid_offset(const char* ubi_loop_device, unsigned int* vid_offset)
 		}
 		pos++;
 	}
-	my_printf("Failed\n");
+	my_printf("Failed finding offset\n");
 	fclose(fp);
 	return 0;
 }
@@ -468,14 +481,14 @@ int detect_mtd_device(const char* ubi_loop_device, unsigned int* mtd_device)
 	libmtd = libmtd_open();
 	if (libmtd == NULL)
 	{
-		my_printf("Failed\n");
+		my_printf("Failed open libmtd\n");
 		return 0;
 	}
 
 	err = mtd_get_info(libmtd, &mtd_info);
 	if (err)
 	{
-		my_printf("Failed\n");
+		my_printf("Failed reading mtd info\n");
 		libmtd_close(libmtd);
 		return 0;
 	}
@@ -496,7 +509,7 @@ int detect_mtd_device(const char* ubi_loop_device, unsigned int* mtd_device)
 		}
 	}
 
-	my_printf("Failed\n");
+	my_printf("Failed finding device\n");
 	libmtd_close(libmtd);
 	return 0;
 }
@@ -621,11 +634,6 @@ int mount_ubi_image(const char* image, char* ubi_mount_path, int quiet, int no_w
 		return 0;
 	}
 
-	if (strcmp(image + strlen(image) - 4, ".nfi") == 0)
-	{
-		// nfi entpacken!
-	}
-
 	if (!setup_loop_device(image, quiet))
 		return 0;
 
@@ -661,6 +669,7 @@ int mount_ubi_image(const char* image, char* ubi_mount_path, int quiet, int no_w
 		ubi_detach_dev(loop_mtd_device, quiet, no_write);
 		remove_block2mtd(ubi_loop_device);
 		release_loop_device(quiet);
+		my_fprintf(stderr, "Error: Mounting ubi device\n");
 		return 0;
 	}
 
@@ -697,7 +706,10 @@ int cp_busybox(char* source, char* target, int quiet, int no_write)
 
 	if (!no_write)
 		if (cp_main(argc, argv) != 0)
+		{
+			my_fprintf(stderr, "Error: Busybox cp!\n");
 			return 0;
+		}
 
 	return 1;
 }
@@ -707,6 +719,8 @@ int cp_rootfs(char* source, char* target, int quiet, int no_write)
 	DIR *dp;
 	struct dirent *d;
 	char new_source[1000];
+	int overall_dir_entries = 0;
+	int dir_entries = 0;
 
 	if (!quiet)
 		my_printf("Copy rootfs: cp -a -f %s %s\n", source, target);
@@ -719,6 +733,17 @@ int cp_rootfs(char* source, char* target, int quiet, int no_write)
 		my_printf("cp_rootfs: Failed to open source dir\n");
 		return 0;
 	}
+
+	// count entries for progressbar
+	while ((d = readdir(dp)) != NULL)
+	{
+		if (strcmp(d->d_name, ".") == 0
+		 || strcmp(d->d_name, "..") == 0)
+			continue;
+		overall_dir_entries++;
+	}
+
+	rewinddir(dp);
 
 	while ((d = readdir(dp)) != NULL)
 	{
@@ -735,6 +760,8 @@ int cp_rootfs(char* source, char* target, int quiet, int no_write)
 			closedir(dp);
 			return 0;
 		}
+		dir_entries++;
+		set_step_progress((int)(dir_entries * 100 / overall_dir_entries));
 	}
 	closedir(dp);
 	return 1;
