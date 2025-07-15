@@ -1880,7 +1880,7 @@ int main(int argc, char *argv[])
 				ret = mount(rootfs_device, "/oldroot_remount/", rootfs_fs_type, 0, NULL);
 			if (!ret)
 				my_printf("Mount to /oldroot_remount/ successful\n");
-			else if (errno == EINVAL && rootfs_flash_mode != TARBZ2_MTD)
+			else if (errno == EINVAL && rootfs_flash_mode != TARBZ2_MTD && rootfs_flash_mode != UBI_LOOP_SUBDIR)
 			{
 				// most likely partition is not formatted -> format it
 				char mkfs_cmd[100];
