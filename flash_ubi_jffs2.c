@@ -802,6 +802,7 @@ int flash_ubi_loop_subdir(char* filename, int quiet, int no_write)
 	set_step("Copying rootfs");
 	if (!cp_rootfs(ubi_mount_path, rootfs_path, quiet, no_write))
 	{
+		sync();
 		umount_ubi_image(ubi_mount_path, quiet, no_write);
 		if (!no_write)
 		{
@@ -809,6 +810,7 @@ int flash_ubi_loop_subdir(char* filename, int quiet, int no_write)
 		}
 		return 0;
 	}
+	sync();
 	umount_ubi_image(ubi_mount_path, quiet, no_write);
 	if (!no_write)
 	{
