@@ -83,7 +83,7 @@ char current_kernel_device[1000];
 char current_rootfs_sub_dir[1000];
 char ubi_fs_name[1000];
 char ubi_loop_device[1000];
-int loop_mtd_device = -1;
+int loop_mtd_device = 99999;
 
 enum FlashModeTypeEnum kernel_flash_mode;
 enum FlashModeTypeEnum rootfs_flash_mode;

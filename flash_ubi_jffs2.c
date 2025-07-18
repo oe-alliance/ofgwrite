@@ -785,7 +785,6 @@ int flash_ubi_loop_subdir(char* filename, int quiet, int no_write)
 
 	if (!mount_ubi_image(filename, ubi_mount_path, quiet, no_write))
 	{
-		umount_ubi_image(ubi_mount_path, quiet, no_write);
 		return 0;
 	}
 
