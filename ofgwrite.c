@@ -100,6 +100,8 @@ int show_help     = 0;
 int newroot_mounted = 0;
 char kernel_filename[1000];
 char rootfs_filename[1000];
+char nfi_filename[1000];
+char nfi_path[1000];
 char rootfs_mount_point[1000];
 char slotname[1000];
 char *boxname = NULL;
@@ -439,6 +441,8 @@ int find_image_files(char* p)
 	my_printf("Searching image files in %s resolved to %s\n", p, path);
 	kernel_filename[0] = '\0';
 	rootfs_filename[0] = '\0';
+	nfi_filename[0] = '\0';
+	nfi_path[0] = '\0';
 
 	// add / to the end of the path
 	if (path[strlen(path)-1] != '/')
@@ -489,6 +493,15 @@ int find_image_files(char* p)
 					image_type = TAR_BASED;
 				else
 					image_type = UBI;
+			}
+			if (strcmp(&entry->d_name[strlen(entry->d_name)-4], ".nfi") == 0) // dream nfi
+			{
+				strcpy(nfi_filename, path);
+				strcat(nfi_filename, entry->d_name);
+				stat(nfi_filename, &rootfs_file_stat);
+				my_printf("Found nfi file: %s\n", nfi_filename);
+				strcpy(nfi_path, path);
+				image_type = UBI;
 			}
 		}
 	} while (entry);
@@ -858,7 +871,7 @@ int kernel_flash(char* device, char* filename)
 		return flash_ubi_jffs2_kernel(device, filename, quiet, no_write);
 }
 
-int rootfs_flash(char* device, char* filename)
+int rootfs_flash(char* device, char* filename, char* nfi_filename)
 {
 	if (rootfs_flash_mode == TARBZ2 || rootfs_flash_mode == TARBZ2_MTD)
 	{
@@ -874,7 +887,7 @@ int rootfs_flash(char* device, char* filename)
 	else if (rootfs_flash_mode == UBI_LOOP_SUBDIR)
 	{
 		my_printf("Flash rootfs ubi loop subdir\n");
-		return flash_ubi_loop_subdir(filename, quiet, no_write);
+		return flash_ubi_loop_subdir(filename, nfi_filename, quiet, no_write);
 	}
 }
 
@@ -895,7 +908,7 @@ int readProcMounts()
 	rootfs_type = UNKNOWN;
 	rootfs_mount_point[0] = '\0';
 
-	if (rootfs_filename[0] != '\0') // rootfs image file found
+	if (rootfs_filename[0] != '\0' || nfi_filename != '\0') // rootfs image file found
 	{
 		devno_of_name = rootfs_file_stat.st_dev;
 		block_dev = 0;
@@ -954,11 +967,13 @@ int readProcMounts()
 		}
 		else
 		{
-			if (rootfs_filename[0] != '\0')
+			if (rootfs_filename[0] != '\0' || nfi_filename != '\0')
 			{
 				// find mountpoint on which the image files are located
 				if (strcmp(rootfs_filename, mountEntry->mnt_dir) == 0
 				 || strcmp(rootfs_filename, mountEntry->mnt_fsname) == 0
+				 || strcmp(nfi_filename, mountEntry->mnt_dir) == 0
+				 || strcmp(nfi_filename, mountEntry->mnt_fsname) == 0
 				 || (stat(mountEntry->mnt_fsname, &dummy_stat) == 0 && dummy_stat.st_rdev == devno_of_name)
 				 || (stat(mountEntry->mnt_dir, &dummy_stat) == 0 && dummy_stat.st_dev == devno_of_name))
 				{
@@ -1744,7 +1759,7 @@ int main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	if (flash_rootfs && (!found_rootfs_device || rootfs_filename[0] == '\0' || rootfs_type == UNKNOWN))
+	if (flash_rootfs && (!found_rootfs_device || (rootfs_filename[0] == '\0' && nfi_filename[0] == '\0') || rootfs_type == UNKNOWN))
 	{
 		my_printf("Error: Cannot flash rootfs");
 		if (!found_rootfs_device)
@@ -1912,7 +1927,7 @@ int main(int argc, char *argv[])
 		}
 
 		// Flash rootfs
-		if (!rootfs_flash(rootfs_device, rootfs_filename))
+		if (!rootfs_flash(rootfs_device, rootfs_filename, nfi_filename))
 		{
 			my_printf("Error flashing rootfs! System won't boot. Please flash backup! System will reboot in 60 seconds\n");
 			set_error_text1("Error flashing rootfs. System won't boot!");
