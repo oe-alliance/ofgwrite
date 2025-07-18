@@ -638,7 +638,7 @@ int mount_ubi_image(char* image, char* nfi_filename, char* ubi_mount_path, int q
 		return 0;
 	}
 
-	if (nfi_filename != '\0')
+	if (nfi_filename[0] != '\0')
 	{
 		image = nfi_filename;
 		if (!extract_rootfs_from_nfi(image, writesize, quiet))
