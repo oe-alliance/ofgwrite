@@ -301,6 +301,7 @@ int setup_loop_device(const char* image, int quiet)
 		my_fprintf(stderr, "Error in setup losetup!\n");
 		return 0;
 	}
+	my_printf("Using loop device: %s\n", ubi_loop_device);
 
 	return 1;
 }
@@ -384,7 +385,6 @@ int get_erasesize_and_writesize(unsigned int* erasesize, unsigned int* writesize
 int setup_block2mtd(const char* ubi_loop_device, unsigned int erasesize, unsigned int writesize)
 {
 	FILE *fp;
-	char cmd[1000];
 
 	my_printf("Setup block2mtd: ");
 
@@ -410,7 +410,6 @@ int setup_block2mtd(const char* ubi_loop_device, unsigned int erasesize, unsigne
 int remove_block2mtd(const char* ubi_loop_device)
 {
 	FILE *fp;
-	char cmd[1000];
 
 	fp = fopen("/sys/module/block2mtd/parameters/block2mtd", "w");
 	if (!fp)
@@ -436,7 +435,9 @@ int detect_vid_offset(const char* ubi_loop_device, unsigned int* vid_offset)
 	int pos = 0;
 	int ret;
 
-	my_printf("Detecting VID Offset: ");
+	memset(buffer, 0, sizeof(buffer));
+
+	my_printf("Detecting VID Offset: \n");
 
 	fp = fopen(ubi_loop_device, "rb");
 	if (!fp)
