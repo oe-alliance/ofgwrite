@@ -231,6 +231,7 @@ int ubiattach_main(int argc, char * const argv[])
 	}
 
 	/* Print some information about the new UBI device */
+	/* Adapted for ofgwrite: Dream has invalid avail_lebs
 	err = ubi_get_dev_info1(libubi, req.dev_num, &dev_info);
 	if (err) {
 		my_printf("cannot get information about newly created UBI device");
@@ -244,6 +245,7 @@ int ubiattach_main(int argc, char * const argv[])
 	my_printf("), LEB size ");
 	ubiutils_print_bytes(dev_info.leb_size, 1);
 	my_printf("\n");
+	*/
 
 	libubi_close(libubi);
 	return 0;
