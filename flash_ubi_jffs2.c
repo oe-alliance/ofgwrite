@@ -519,7 +519,7 @@ int extract_rootfs_from_nfi(const char* image, unsigned int writesize, int quiet
 {
 	FILE *fp, *out;
 	int ret;
-	char buffer[10000];
+	unsigned char buffer[10000];
 	unsigned long totalsize, size, pos, partition;
 
 	// rootfs image contains ecc data which needs to be removed
@@ -559,7 +559,7 @@ int extract_rootfs_from_nfi(const char* image, unsigned int writesize, int quiet
 		my_printf("Wrong NFI header size\n");
 		return 0;
 	}
-	my_printf("NFI header size %lu", totalsize);
+	my_printf("NFI header totalsize %lu\n", totalsize);
 
 	partition = 0;
 	pos = 32 + 4;
@@ -589,7 +589,9 @@ int extract_rootfs_from_nfi(const char* image, unsigned int writesize, int quiet
 		{	// rootfs img
 			pos += 4;
 			unsigned int part_end = pos + size;
-			FILE* fout = fopen("./b.out", "wb");
+			my_printf("Found rootfs partition in NFI file with size %lu\n", size);
+			strcat(nfi_path, "/ofg_nfi_rootfs.bin");
+			FILE* fout = fopen(nfi_path, "wb");
 			if (!fout)
 			{
 				my_printf("NFI failed to open output file\n");
@@ -610,6 +612,8 @@ int extract_rootfs_from_nfi(const char* image, unsigned int writesize, int quiet
 			}
 			fclose(fout);
 			fclose(fp);
+			my_printf("Rootfs partition in NFI file successfully extracted now using %s\n", nfi_path);
+			strcpy(image, nfi_path);
 			return 1;
 		}
 		partition++;
@@ -618,7 +622,7 @@ int extract_rootfs_from_nfi(const char* image, unsigned int writesize, int quiet
 	return 0;
 }
 
-int mount_ubi_image(const char* image, char* ubi_mount_path, int quiet, int no_write)
+int mount_ubi_image(char* image, char* nfi_filename, char* ubi_mount_path, int quiet, int no_write)
 {
 	unsigned int erasesize;
 	unsigned int writesize;
@@ -631,8 +635,14 @@ int mount_ubi_image(const char* image, char* ubi_mount_path, int quiet, int no_w
 
 	if (!get_erasesize_and_writesize(&erasesize, &writesize, quiet))
 	{
-		release_loop_device(quiet);
 		return 0;
+	}
+
+	if (nfi_filename != '\0')
+	{
+		image = nfi_filename;
+		if (!extract_rootfs_from_nfi(image, writesize, quiet))
+			return 0;
 	}
 
 	if (!setup_loop_device(image, quiet))
@@ -768,7 +778,7 @@ int cp_rootfs(char* source, char* target, int quiet, int no_write)
 	return 1;
 }
 
-int flash_ubi_loop_subdir(char* filename, int quiet, int no_write)
+int flash_ubi_loop_subdir(char* filename, char* nfi_filename, int quiet, int no_write)
 {
 	int ret;
 	char rootfs_path[1000];
@@ -784,7 +794,7 @@ int flash_ubi_loop_subdir(char* filename, int quiet, int no_write)
 		mkdir(ubi_mount_path, 777);
 	}
 
-	if (!mount_ubi_image(filename, ubi_mount_path, quiet, no_write))
+	if (!mount_ubi_image(filename, nfi_filename, ubi_mount_path, quiet, no_write))
 	{
 		return 0;
 	}

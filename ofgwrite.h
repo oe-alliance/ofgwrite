@@ -22,6 +22,8 @@ extern char current_rootfs_sub_dir[1000];
 extern char ubi_fs_name[1000];
 extern char ubi_loop_device[1000];
 extern int loop_mtd_device;
+extern char nfi_filename[1000];
+extern char nfi_path[1000];
 
 void handle_busybox_fatal_error();
 
