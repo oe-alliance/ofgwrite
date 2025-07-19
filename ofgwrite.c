@@ -503,6 +503,14 @@ int find_image_files(char* p)
 				strcpy(nfi_path, path);
 				image_type = UBI;
 			}
+			if (strcmp(&entry->d_name[strlen(entry->d_name)-7], ".tar.xz") == 0) // dream dm520
+			{
+				strcpy(rootfs_filename, path);
+				strcat(rootfs_filename, entry->d_name);
+				stat(rootfs_filename, &rootfs_file_stat);
+				my_printf("Found tar.xz rootfs file: %s\n", rootfs_filename);
+				image_type = TAR_UBI;
+			}
 		}
 	} while (entry);
 
@@ -873,7 +881,7 @@ int kernel_flash(char* device, char* filename)
 
 int rootfs_flash(char* device, char* filename, char* nfi_filename)
 {
-	if (rootfs_flash_mode == TARBZ2 || rootfs_flash_mode == TARBZ2_MTD)
+	if (rootfs_flash_mode == TARBZ2 || rootfs_flash_mode == TARBZ2_MTD || rootfs_flash_mode == TARXZ_UBI)
 	{
 		my_printf("Flash rootfs unpack\n");
 		return flash_unpack_rootfs(filename, quiet, no_write);
@@ -1388,11 +1396,11 @@ int umount_rootfs(int steps)
 		my_printf("umount not successful\n");
 
 	// mount oldroot to other mountpoint, because otherwise all data in not moved filesystems under /oldroot will be deleted
-	if (rootfs_flash_mode == TARBZ2 || rootfs_flash_mode == TARBZ2_MTD || rootfs_flash_mode == UBI_LOOP_SUBDIR)
+	if (rootfs_flash_mode == TARBZ2 || rootfs_flash_mode == TARBZ2_MTD || rootfs_flash_mode == UBI_LOOP_SUBDIR || rootfs_flash_mode == TARXZ_UBI)
 	{
 		if (rootfs_flash_mode == TARBZ2)
 			ret = mount(rootfs_device, "/oldroot_remount/", rootfs_fs_type, 0, NULL);
-		else if (rootfs_flash_mode == UBI_LOOP_SUBDIR)
+		else if (rootfs_flash_mode == UBI_LOOP_SUBDIR || rootfs_flash_mode == TARXZ_UBI)
 			ret = mount(rootfs_device, "/oldroot_remount/", "ext4", 0, NULL);
 		else
 			ret = mount(ubi_fs_name, "/oldroot_remount/", "ubifs", 0, NULL);
@@ -1603,10 +1611,13 @@ void find_kernel_rootfs_device()
 	// use chkroot rootfs mode
 	if (chkroot_mode == 1)
 	{
-		if (image_type == TAR_BASED)
+		if (image_type == TAR_BASED) {
 			rootfs_flash_mode = TARBZ2;
-		else
+		} else if (image_type == TAR_UBI) {
+			rootfs_flash_mode = TARXZ_UBI;
+		} else {
 			rootfs_flash_mode = UBI_LOOP_SUBDIR;
+		}
 		my_printf("Using %s as rootfs device\n", rootfs_device);
 		sprintf(rootfs_sub_dir, "%s%d", slotname, multiboot_partition);
 	}
@@ -1881,7 +1892,7 @@ int main(int argc, char *argv[])
 			}
 		}
 		// if not running rootfs is flashed then we need to mount it before start flashing
-		if (!no_write && !stop_e2_needed && (rootfs_flash_mode == TARBZ2 || rootfs_flash_mode == TARBZ2_MTD || rootfs_flash_mode == UBI_LOOP_SUBDIR))
+		if (!no_write && !stop_e2_needed && (rootfs_flash_mode == TARBZ2 || rootfs_flash_mode == TARBZ2_MTD || rootfs_flash_mode == UBI_LOOP_SUBDIR || rootfs_flash_mode == TARXZ_UBI))
 		{
 			set_step("Mount rootfs");
 			my_printf("Mount rootfs\n");
@@ -1889,13 +1900,13 @@ int main(int argc, char *argv[])
 			// mount rootfs device
 			if (rootfs_flash_mode == TARBZ2_MTD) // box with mtd subdir feature e.g. sfx6008
 				ret = mount(ubi_fs_name, "/oldroot_remount/", "ubifs", 0, NULL);
-			else if (rootfs_flash_mode == UBI_LOOP_SUBDIR) // ubi box with subdir feature on external device (USB, SATA,...)
+			else if (rootfs_flash_mode == UBI_LOOP_SUBDIR || rootfs_flash_mode == TARXZ_UBI) // ubi box with subdir feature on external device (USB, SATA,...)
 				ret = mount(rootfs_device, "/oldroot_remount/", "ext4", 0, NULL);
 			else
 				ret = mount(rootfs_device, "/oldroot_remount/", rootfs_fs_type, 0, NULL);
 			if (!ret)
 				my_printf("Mount to /oldroot_remount/ successful\n");
-			else if (errno == EINVAL && rootfs_flash_mode != TARBZ2_MTD && rootfs_flash_mode != UBI_LOOP_SUBDIR)
+			else if (errno == EINVAL && rootfs_flash_mode != TARBZ2_MTD && rootfs_flash_mode != UBI_LOOP_SUBDIR && rootfs_flash_mode != TARXZ_UBI)
 			{
 				// most likely partition is not formatted -> format it
 				char mkfs_cmd[100];

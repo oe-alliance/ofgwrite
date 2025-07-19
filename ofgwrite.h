@@ -34,7 +34,7 @@ enum RootfsTypeEnum
 
 enum FlashModeTypeEnum
 {
-	FLASH_MODE_UNKNOWN, MTD, TARBZ2, TARBZ2_MTD, UBI_LOOP_SUBDIR
+	FLASH_MODE_UNKNOWN, MTD, TARBZ2, TARBZ2_MTD, UBI_LOOP_SUBDIR, TARXZ_UBI
 };
 // TARBZ2, TARBZ2_MTD is also used for xz compressed rootfs
 
@@ -43,7 +43,7 @@ extern enum FlashModeTypeEnum rootfs_flash_mode;
 
 enum ImageTypeEnum
 {
-	IMAGE_UNKNOWN, UBI, TAR_BASED
+	IMAGE_UNKNOWN, UBI, TAR_BASED, TAR_UBI
 };
 
 extern enum ImageTypeEnum image_type;
