@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <linux/kd.h>
 #include <sys/ioctl.h>
+#include <errno.h>
 
 #include "font.h"
 
@@ -34,6 +35,9 @@ int g_manual_blit = 0;
 struct fb_var_screeninfo g_screeninfo_var;
 struct fb_fix_screeninfo g_screeninfo_fix;
 int g_step = 1;
+
+size_t g_fbMapLen = 0;
+int g_fbPages = 1;
 
 // box
 struct window_t
@@ -63,6 +67,38 @@ struct progressbar
 struct progressbar g_pb_overall;
 struct progressbar g_pb_step;
 
+void paint_box(int x1, int y1, int x2, int y2, char* color);
+
+static int get_safe_pages(void)
+{
+	if (!g_fbMapLen || !g_screeninfo_fix.line_length || !g_screeninfo_var.yres)
+		return 1;
+
+	size_t max_lines = g_fbMapLen / g_screeninfo_fix.line_length;
+	unsigned int yvirt = g_screeninfo_var.yres_virtual;
+	if (yvirt > max_lines)
+		yvirt = (unsigned int)max_lines;
+
+	int pages = (int)(yvirt / g_screeninfo_var.yres);
+	if (pages < 1)
+		pages = 1;
+	return pages;
+}
+
+static void clear_all_pages(char *color)
+{
+	int pages = get_safe_pages();
+	unsigned int saved_yoffset = g_screeninfo_var.yoffset;
+
+	int p;
+	for (p = 0; p < pages; p++)
+	{
+		g_screeninfo_var.yoffset = p * g_screeninfo_var.yres;
+		paint_box(0, 0, g_screeninfo_var.xres, g_screeninfo_var.yres, color);
+	}
+
+	g_screeninfo_var.yoffset = saved_yoffset;
+}
 
 void blit()
 {
@@ -157,12 +193,16 @@ void paint_progressbars()
 void close_framebuffer()
 {
 	// hide all old osd content
-	paint_box(0, 0, g_screeninfo_var.xres, g_screeninfo_var.yres, TRANS);
+	if (g_lfb)
+		clear_all_pages(TRANS);
+	else
+		paint_box(0, 0, g_screeninfo_var.xres, g_screeninfo_var.yres, TRANS);
 
 	if (g_lfb)
 	{
-		msync(g_lfb, g_screeninfo_fix.smem_len, MS_SYNC);
-		munmap(g_lfb, g_screeninfo_fix.smem_len);
+		msync(g_lfb, g_fbMapLen ? g_fbMapLen : g_screeninfo_fix.smem_len, MS_SYNC);
+		munmap(g_lfb, g_fbMapLen ? g_fbMapLen : g_screeninfo_fix.smem_len);
+		g_fbMapLen = 0;
 	}
 
 	if (g_fbFd >= 0)
@@ -190,20 +230,60 @@ int get_screeninfo()
 	return 1;
 }
 
-// Needed by hisilicon boxes to show gui while e2 is running. screeninfo_var.yoffset is not 0 on these boxes
+// Needed by some boxes to show GUI while Enigma2 is running.
+// We try to request triple buffering first, then fall back to double or single buffering.
+// If the driver refuses FBIOPUT_VSCREENINFO (e.g. busy), we continue with the current mode.
 int set_screeninfo()
 {
-	g_screeninfo_var.yres_virtual = g_screeninfo_var.yres * 2;
-	g_screeninfo_var.xoffset = g_screeninfo_var.yoffset = 0;
+	struct fb_var_screeninfo orig = g_screeninfo_var;
+	unsigned int ny = orig.yres;
 
-	if (ioctl(g_fbFd, FBIOPUT_VSCREENINFO, &g_screeninfo_var) < 0)
+	/* Be defensive: without a valid yres we cannot calculate virtual height. */
+	if (!ny)
+		return 1;
+
+	unsigned int try_yvirt[3];
+	try_yvirt[0] = ny * 3;
+	try_yvirt[1] = ny * 2;
+	try_yvirt[2] = ny;
+
+	int applied = 0;
+
+	int i;
+
+	for (i = 0; i < 3; i++)
 	{
-		perror("Cannot set variable information");
+		g_screeninfo_var = orig;
+		g_screeninfo_var.yres = ny;
+		g_screeninfo_var.yres_virtual = try_yvirt[i];
+		g_screeninfo_var.xoffset = 0;
+		g_screeninfo_var.yoffset = 0;
+		g_screeninfo_var.activate = FB_ACTIVATE_ALL;
+
+		if (ioctl(g_fbFd, FBIOPUT_VSCREENINFO, &g_screeninfo_var) == 0)
+		{
+			applied = 1;
+			break;
+		}
+	}
+
+	/* Always read back what the kernel accepted. */
+	if (!get_screeninfo())
 		return 0;
+
+	g_fbPages = (g_screeninfo_var.yres ? (int)(g_screeninfo_var.yres_virtual / g_screeninfo_var.yres) : 1);
+	if (g_fbPages < 1)
+		g_fbPages = 1;
+
+	if (!applied)
+	{
+		/* Non-fatal: keep current mode. */
+		return 1;
 	}
 
 	return 1;
 }
+
 
 int open_framebuffer()
 {
@@ -240,14 +320,45 @@ nolfb:
 
 int mmap_fb()
 {
-	g_lfb = (unsigned char*)mmap(0, g_screeninfo_fix.smem_len, PROT_WRITE|PROT_READ, MAP_SHARED, g_fbFd, 0);
-	if (!g_lfb)
+	/* Some drivers report smem_len=0; fall back to a computed length in that case. */
+	size_t map_len = g_screeninfo_fix.smem_len;
+
+	if (!map_len && g_screeninfo_fix.line_length && g_screeninfo_var.yres_virtual)
+		map_len = (size_t)g_screeninfo_fix.line_length * (size_t)g_screeninfo_var.yres_virtual;
+
+	/* Last resort: compute by resolution. */
+	if (!map_len && g_screeninfo_var.xres && g_screeninfo_var.yres_virtual && g_screeninfo_var.bits_per_pixel)
+		map_len = (size_t)g_screeninfo_var.xres * (size_t)g_screeninfo_var.yres_virtual * (size_t)(g_screeninfo_var.bits_per_pixel / 8);
+
+	if (!map_len)
 	{
+		my_printf("Error: framebuffer mapping size is 0");
+		return 0;
+	}
+
+	g_fbMapLen = map_len;
+
+	g_lfb = (unsigned char*)mmap(0, map_len, PROT_WRITE | PROT_READ, MAP_SHARED, g_fbFd, 0);
+	if (g_lfb == MAP_FAILED)
+	{
+		g_lfb = NULL;
+		g_fbMapLen = 0;
 		perror("mmap");
 		return 0;
 	}
+
+	/* Clamp pages to what fits inside the mapping to avoid OOB writes. */
+	g_fbPages = get_safe_pages();
+	if (g_screeninfo_var.yres && g_fbPages > 0)
+	{
+		unsigned int max_yoff = (unsigned int)(g_fbPages - 1) * g_screeninfo_var.yres;
+		if (g_screeninfo_var.yoffset > max_yoff)
+			g_screeninfo_var.yoffset = 0;
+	}
+
 	return 1;
 }
+
 
 int set_fb_resolution()
 {
@@ -623,7 +734,10 @@ int init_framebuffer(int steps)
 	set_window_dimension();
 
 	// hide all old osd content
-	paint_box(0, 0, g_screeninfo_var.xres, g_screeninfo_var.yres, TRANS);
+	if (g_lfb)
+		clear_all_pages(TRANS);
+	else
+		paint_box(0, 0, g_screeninfo_var.xres, g_screeninfo_var.yres, TRANS);
 
 	init_progressbars(steps);
 
@@ -633,7 +747,10 @@ int init_framebuffer(int steps)
 int show_main_window(int show_background_image, const char* version)
 {
 	// hide all old osd content
-	paint_box(0, 0, g_screeninfo_var.xres, g_screeninfo_var.yres, TRANS);
+	if (g_lfb)
+		clear_all_pages(TRANS);
+	else
+		paint_box(0, 0, g_screeninfo_var.xres, g_screeninfo_var.yres, TRANS);
 
 	// set background image
 	if (show_background_image && !loadBackgroundImage())
