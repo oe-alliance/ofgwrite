@@ -109,7 +109,7 @@ enum RootfsTypeEnum rootfs_type;
 int stop_e2_needed = 1;
 int chkroot_mode = 0;
 
-const char ofgwrite_version[] = "4.8.0";
+const char ofgwrite_version[] = "4.8.1";
 
 struct struct_mountlist
 {
@@ -2014,8 +2014,8 @@ int main(int argc, char *argv[])
 					dreamcard = 0;
 				}
 
-				if (strcmp(label, "DREAMCARD\n") != 0) {
-					my_printf("Info: The device label does not match 'dreamcard'\n");
+				if (strcmp(label, "DREAMCARD\n") != 0 && strcmp(label, "DREAMBOOT\n") != 0) {
+					my_printf("Info: The device label does not match 'dreamcard' or 'dreamboot'\n");
 					dreamcard = 0;
 				}
 				if (dreamcard) {
@@ -2027,15 +2027,21 @@ int main(int argc, char *argv[])
 						rmdir(dreamcard_mount);
 						return EXIT_FAILURE;
 					}
-					size_t length = strlen(rootfs_device);
-					int kernelnr = (length > 0) ? rootfs_device[length - 1] - '0' : -1;
-					if (kernelnr < 0 || kernelnr > 9) {
-						my_printf("Error: Invalid kernel number\n");
-						rmdir(dreamcard_mount);
-						return EXIT_FAILURE;
-					}
 					char filename[50];
-					snprintf(filename, sizeof(filename), "/dreamcard/kernel%d.img", kernelnr);
+					//SD auto-boot variant: u-boot.bin + kernel.img present -> write kernel.img
+					if (access("/dreamcard/u-boot.bin", F_OK) == 0
+					 && access("/dreamcard/kernel.img", F_OK) == 0) {
+						snprintf(filename, sizeof(filename), "/dreamcard/kernel.img");
+					} else {
+						size_t length = strlen(rootfs_device);
+						int kernelnr = (length > 0) ? rootfs_device[length - 1] - '0' : -1;
+						if (kernelnr < 0 || kernelnr > 9) {
+							my_printf("Error: Invalid kernel number\n");
+							rmdir(dreamcard_mount);
+							return EXIT_FAILURE;
+						}
+						snprintf(filename, sizeof(filename), "/dreamcard/kernel%d.img", kernelnr);
+					}
 					my_printf("start generate %s image on %s\n", filename, dreamcard_device);
 					generate_boot_image(filename);
 					sync();
