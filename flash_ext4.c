@@ -134,7 +134,7 @@ int flash_unpack_rootfs(char* filename, int quiet, int no_write)
 	set_step("Extracting rootfs");
 	set_step_progress(0);
 	if (!no_write && current_rootfs_sub_dir[0] != '\0' && rootsubdir_check == 0) // box with rootSubDir feature
-		mkdir(path, 777); // directory is maybe not present
+		mkdir(path, 0777); // directory is maybe not present
 	if (!untar_rootfs(filename, path, quiet, no_write))
 	{
 		my_printf("Error extracting rootfs\n");
