@@ -1362,6 +1362,7 @@ int umount_rootfs(int steps)
 		my_printf("umounting: %s\n", mountlist->dir);
 		strcpy(oldroot_path, "/oldroot");
 		strcat(oldroot_path, mountlist->dir);
+		sleep(1);
 		umount2(oldroot_path, MNT_DETACH);
 		free(mountlist->dir);
 		mountlist = mountlist->next;
