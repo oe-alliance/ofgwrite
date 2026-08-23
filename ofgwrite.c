@@ -1449,7 +1449,8 @@ void ext4_kernel_dev_found(const char* dev, int partition_number)
 {
 	found_kernel_device = 1;
 	kernel_flash_mode = TARBZ2;
-	sprintf(kernel_device, "%sp%d", dev, partition_number);
+	const char* separator = dev[strlen(dev) - 1] >= '0' && dev[strlen(dev) - 1] <= '9' ? "p" : "";
+	snprintf(kernel_device, sizeof(kernel_device), "%s%s%d", dev, separator, partition_number);
 	my_printf("Using %s as kernel device\n", kernel_device);
 }
 
@@ -1457,7 +1458,8 @@ void ext4_rootfs_dev_found(const char* dev, int partition_number)
 {
 	found_rootfs_device = 1;
 	rootfs_flash_mode = TARBZ2;
-	sprintf(rootfs_device, "%sp%d", dev, partition_number);
+	const char* separator = dev[strlen(dev) - 1] >= '0' && dev[strlen(dev) - 1] <= '9' ? "p" : "";
+	snprintf(rootfs_device, sizeof(rootfs_device), "%s%s%d", dev, separator, partition_number);
 	my_printf("Using %s as rootfs device\n", rootfs_device);
 }
 
