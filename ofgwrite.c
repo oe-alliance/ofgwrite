@@ -1903,13 +1903,17 @@ int main(int argc, char *argv[])
 			// mount rootfs device
 			if (rootfs_flash_mode == TARBZ2_MTD) // box with mtd subdir feature e.g. sfx6008
 				ret = mount(ubi_fs_name, "/oldroot_remount/", "ubifs", 0, NULL);
+			else if (chkroot_mode == 1)
+				/* Chkroot targets are external Linux partitions.  Do not reuse
+				 * the filesystem type of the currently running UBI rootfs. */
+				ret = mount(rootfs_device, "/oldroot_remount/", "ext4", 0, NULL);
 			else if (rootfs_flash_mode == UBI_LOOP_SUBDIR || rootfs_flash_mode == TARXZ_UBI) // ubi box with subdir feature on external device (USB, SATA,...)
 				ret = mount(rootfs_device, "/oldroot_remount/", "ext4", 0, NULL);
 			else
 				ret = mount(rootfs_device, "/oldroot_remount/", rootfs_fs_type, 0, NULL);
 			if (!ret)
 				my_printf("Mount to /oldroot_remount/ successful\n");
-			else if (errno == EINVAL && rootfs_flash_mode != TARBZ2_MTD && rootfs_flash_mode != UBI_LOOP_SUBDIR && rootfs_flash_mode != TARXZ_UBI)
+			else if (errno == EINVAL && chkroot_mode != 1 && rootfs_flash_mode != TARBZ2_MTD && rootfs_flash_mode != UBI_LOOP_SUBDIR && rootfs_flash_mode != TARXZ_UBI)
 			{
 				// most likely partition is not formatted -> format it
 				char mkfs_cmd[100];

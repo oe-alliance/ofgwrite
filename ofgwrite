@@ -1,6 +1,8 @@
 #!/bin/sh
 
-mkdir /newroot
-mount -t tmpfs tmpfs /newroot
-cp -p /usr/bin/ofgwrite_bin /newroot/
-/newroot/ofgwrite_bin "$@"
+mkdir -p /newroot || exit 1
+if ! awk '$2 == "/newroot" && $3 == "tmpfs" { found=1 } END { exit found ? 0 : 1 }' /proc/mounts; then
+	mount -t tmpfs tmpfs /newroot || exit 1
+fi
+cp -p /usr/bin/ofgwrite_bin /newroot/ || exit 1
+exec /newroot/ofgwrite_bin "$@"
