@@ -111,7 +111,7 @@ enum RootfsTypeEnum rootfs_type;
 int stop_e2_needed = 1;
 int chkroot_mode = 0;
 
-const char ofgwrite_version[] = "4.8.2";
+const char ofgwrite_version[] = "5.0.1";
 
 struct struct_mountlist
 {
