@@ -1,0 +1,134 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: ofgwrite\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Writing and verifying Dream kernel A"
+msgstr "Dream-Kernel A schreiben und prüfen"
+
+msgid "Flashing failed"
+msgstr "Flashen fehlgeschlagen"
+
+msgid "Done"
+msgstr "Fertig"
+
+#, c-format
+msgid "Step %d of %d"
+msgstr "Schritt %d von %d"
+
+msgid "Check only, nothing is written"
+msgstr "Nur Prüfung, es wird nichts geschrieben"
+
+msgid "Do not switch off the receiver"
+msgstr "Receiver nicht ausschalten"
+
+#, c-format
+msgid "Restart in %d s"
+msgstr "Neustart in %d s"
+
+#, c-format
+msgid "Ends in %d s"
+msgstr "Beende in %d s"
+
+msgid "Writing ext4 kernel"
+msgstr "ext4-Kernel schreiben"
+
+msgid "Deleting rootfs"
+msgstr "Rootfs löschen"
+
+msgid "Extracting rootfs"
+msgstr "Rootfs entpacken"
+
+msgid "Erasing kernel"
+msgstr "Kernel löschen"
+
+msgid "Writing kernel"
+msgstr "Kernel schreiben"
+
+msgid "Copying rootfs"
+msgstr "Rootfs kopieren"
+
+msgid "Erasing rootfs"
+msgstr "Rootfs löschen"
+
+msgid "Writing rootfs"
+msgstr "Rootfs schreiben"
+
+msgid "Enigma2 could not be stopped, switching to runlevel 2 failed."
+msgstr "Enigma2 konnte nicht gestoppt werden, der Wechsel in Runlevel 2 ist fehlgeschlagen."
+
+msgid "Nothing was flashed."
+msgstr "Es wurde nichts geflasht."
+
+msgid "Wait until E2 is stopped"
+msgstr "Warten, bis Enigma2 gestoppt ist"
+
+msgid "Enigma2 could not be stopped."
+msgstr "Enigma2 konnte nicht gestoppt werden."
+
+msgid "Enigma2 starts again, nothing was flashed."
+msgstr "Enigma2 startet wieder, es wurde nichts geflasht."
+
+msgid "The flash environment could not be prepared."
+msgstr "Die Flash-Umgebung konnte nicht vorbereitet werden."
+
+msgid "The mounts could not be moved to the flash environment."
+msgstr "Die Einhängepunkte konnten nicht in die Flash-Umgebung verschoben werden."
+
+msgid "The root file system could not be mounted again."
+msgstr "Das Root-Dateisystem konnte nicht neu eingehängt werden."
+
+msgid "The root file system could not be mounted read-only."
+msgstr "Das Root-Dateisystem konnte nicht schreibgeschützt eingehängt werden."
+
+msgid "The rootfs could not be unpacked. The flashed image will not start like this."
+msgstr "Das Rootfs konnte nicht entpackt werden. So startet das geflashte Image nicht."
+
+msgid "Flash a backup."
+msgstr "Flashe eine Sicherung."
+
+msgid "The check was successful."
+msgstr "Die Prüfung war erfolgreich."
+
+msgid "The kernel was flashed."
+msgstr "Der Kernel wurde geflasht."
+
+msgid "The kernel could not be flashed. The flashed image will not start like this."
+msgstr "Der Kernel konnte nicht geflasht werden. So startet das geflashte Image nicht."
+
+msgid "Killing processes"
+msgstr "Prozesse beenden"
+
+msgid "Syncing filesystem"
+msgstr "Dateisystem synchronisieren"
+
+msgid "init 2"
+msgstr "Enigma2 und Dienste beenden"
+
+msgid "Mount rootfs"
+msgstr "Rootfs einhängen"
+
+msgid "The root file system could not be mounted."
+msgstr "Das Root-Dateisystem konnte nicht eingehängt werden."
+
+msgid "The rootfs could not be flashed. The flashed image will not start like this."
+msgstr "Das Rootfs konnte nicht geflasht werden. So startet das geflashte Image nicht."
+
+msgid "Create Kernel.img"
+msgstr "kernel.img erzeugen"
+
+msgid "The image was flashed."
+msgstr "Das Image wurde geflasht."
+
+#, c-format
+msgid "Bad blocks: %d (uncritical, when no changes)"
+msgstr "Defekte Blöcke: %d (unkritisch, solange es nicht mehr werden)"
+
+msgid "Flashing UBI image"
+msgstr "UBI-Image wird geflasht"
+
+msgid "Formatting remaining eraseblocks"
+msgstr "Übrige Löschblöcke formatieren"

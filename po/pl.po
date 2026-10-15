@@ -1,0 +1,134 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: ofgwrite\n"
+"Language: pl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Writing and verifying Dream kernel A"
+msgstr "Zapisywanie i sprawdzanie jądra Dream A"
+
+msgid "Flashing failed"
+msgstr "Wgrywanie nie powiodło się"
+
+msgid "Done"
+msgstr "Gotowe"
+
+#, c-format
+msgid "Step %d of %d"
+msgstr "Krok %d z %d"
+
+msgid "Check only, nothing is written"
+msgstr "Tylko sprawdzanie, nic nie jest zapisywane"
+
+msgid "Do not switch off the receiver"
+msgstr "Nie wyłączaj odbiornika"
+
+#, c-format
+msgid "Restart in %d s"
+msgstr "Ponowne uruchomienie za %d s"
+
+#, c-format
+msgid "Ends in %d s"
+msgstr "Koniec za %d s"
+
+msgid "Writing ext4 kernel"
+msgstr "Zapisywanie jądra ext4"
+
+msgid "Deleting rootfs"
+msgstr "Usuwanie rootfs"
+
+msgid "Extracting rootfs"
+msgstr "Rozpakowywanie rootfs"
+
+msgid "Erasing kernel"
+msgstr "Kasowanie jądra"
+
+msgid "Writing kernel"
+msgstr "Zapisywanie jądra"
+
+msgid "Copying rootfs"
+msgstr "Kopiowanie rootfs"
+
+msgid "Erasing rootfs"
+msgstr "Kasowanie rootfs"
+
+msgid "Writing rootfs"
+msgstr "Zapisywanie rootfs"
+
+msgid "Enigma2 could not be stopped, switching to runlevel 2 failed."
+msgstr "Nie udało się zatrzymać Enigma2, przejście do poziomu uruchomienia 2 nie powiodło się."
+
+msgid "Nothing was flashed."
+msgstr "Nic nie zostało wgrane."
+
+msgid "Wait until E2 is stopped"
+msgstr "Oczekiwanie na zatrzymanie Enigma2"
+
+msgid "Enigma2 could not be stopped."
+msgstr "Nie udało się zatrzymać Enigma2."
+
+msgid "Enigma2 starts again, nothing was flashed."
+msgstr "Enigma2 uruchamia się ponownie, nic nie zostało wgrane."
+
+msgid "The flash environment could not be prepared."
+msgstr "Nie udało się przygotować środowiska do wgrywania."
+
+msgid "The mounts could not be moved to the flash environment."
+msgstr "Nie udało się przenieść punktów montowania do środowiska wgrywania."
+
+msgid "The root file system could not be mounted again."
+msgstr "Nie udało się ponownie zamontować głównego systemu plików."
+
+msgid "The root file system could not be mounted read-only."
+msgstr "Nie udało się zamontować głównego systemu plików tylko do odczytu."
+
+msgid "The rootfs could not be unpacked. The flashed image will not start like this."
+msgstr "Nie udało się rozpakować rootfs. Wgrany obraz w tym stanie się nie uruchomi."
+
+msgid "Flash a backup."
+msgstr "Wgraj kopię zapasową."
+
+msgid "The check was successful."
+msgstr "Sprawdzanie zakończyło się powodzeniem."
+
+msgid "The kernel was flashed."
+msgstr "Jądro zostało wgrane."
+
+msgid "The kernel could not be flashed. The flashed image will not start like this."
+msgstr "Nie udało się wgrać jądra. Wgrany obraz w tym stanie się nie uruchomi."
+
+msgid "Killing processes"
+msgstr "Zamykanie procesów"
+
+msgid "Syncing filesystem"
+msgstr "Synchronizacja systemu plików"
+
+msgid "init 2"
+msgstr "Zamykanie Enigma2 i usług"
+
+msgid "Mount rootfs"
+msgstr "Montowanie rootfs"
+
+msgid "The root file system could not be mounted."
+msgstr "Nie udało się zamontować głównego systemu plików."
+
+msgid "The rootfs could not be flashed. The flashed image will not start like this."
+msgstr "Nie udało się wgrać rootfs. Wgrany obraz w tym stanie się nie uruchomi."
+
+msgid "Create Kernel.img"
+msgstr "Tworzenie kernel.img"
+
+msgid "The image was flashed."
+msgstr "Obraz został wgrany."
+
+#, c-format
+msgid "Bad blocks: %d (uncritical, when no changes)"
+msgstr "Uszkodzone bloki: %d (niegroźne, o ile ich nie przybywa)"
+
+msgid "Flashing UBI image"
+msgstr "Wgrywanie obrazu UBI"
+
+msgid "Formatting remaining eraseblocks"
+msgstr "Formatowanie pozostałych bloków"

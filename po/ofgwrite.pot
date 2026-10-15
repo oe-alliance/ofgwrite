@@ -1,0 +1,134 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: ofgwrite\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Writing and verifying Dream kernel A"
+msgstr ""
+
+msgid "Flashing failed"
+msgstr ""
+
+msgid "Done"
+msgstr ""
+
+#, c-format
+msgid "Step %d of %d"
+msgstr ""
+
+msgid "Check only, nothing is written"
+msgstr ""
+
+msgid "Do not switch off the receiver"
+msgstr ""
+
+#, c-format
+msgid "Restart in %d s"
+msgstr ""
+
+#, c-format
+msgid "Ends in %d s"
+msgstr ""
+
+msgid "Writing ext4 kernel"
+msgstr ""
+
+msgid "Deleting rootfs"
+msgstr ""
+
+msgid "Extracting rootfs"
+msgstr ""
+
+msgid "Erasing kernel"
+msgstr ""
+
+msgid "Writing kernel"
+msgstr ""
+
+msgid "Copying rootfs"
+msgstr ""
+
+msgid "Erasing rootfs"
+msgstr ""
+
+msgid "Writing rootfs"
+msgstr ""
+
+msgid "Enigma2 could not be stopped, switching to runlevel 2 failed."
+msgstr ""
+
+msgid "Nothing was flashed."
+msgstr ""
+
+msgid "Wait until E2 is stopped"
+msgstr ""
+
+msgid "Enigma2 could not be stopped."
+msgstr ""
+
+msgid "Enigma2 starts again, nothing was flashed."
+msgstr ""
+
+msgid "The flash environment could not be prepared."
+msgstr ""
+
+msgid "The mounts could not be moved to the flash environment."
+msgstr ""
+
+msgid "The root file system could not be mounted again."
+msgstr ""
+
+msgid "The root file system could not be mounted read-only."
+msgstr ""
+
+msgid "The rootfs could not be unpacked. The flashed image will not start like this."
+msgstr ""
+
+msgid "Flash a backup."
+msgstr ""
+
+msgid "The check was successful."
+msgstr ""
+
+msgid "The kernel was flashed."
+msgstr ""
+
+msgid "The kernel could not be flashed. The flashed image will not start like this."
+msgstr ""
+
+msgid "Killing processes"
+msgstr ""
+
+msgid "Syncing filesystem"
+msgstr ""
+
+msgid "init 2"
+msgstr ""
+
+msgid "Mount rootfs"
+msgstr ""
+
+msgid "The root file system could not be mounted."
+msgstr ""
+
+msgid "The rootfs could not be flashed. The flashed image will not start like this."
+msgstr ""
+
+msgid "Create Kernel.img"
+msgstr ""
+
+msgid "The image was flashed."
+msgstr ""
+
+#, c-format
+msgid "Bad blocks: %d (uncritical, when no changes)"
+msgstr ""
+
+msgid "Flashing UBI image"
+msgstr ""
+
+msgid "Formatting remaining eraseblocks"
+msgstr ""

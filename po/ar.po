@@ -1,0 +1,134 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: ofgwrite\n"
+"Language: ar\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Writing and verifying Dream kernel A"
+msgstr "كتابة نواة Dream A والتحقق منها"
+
+msgid "Flashing failed"
+msgstr "فشل التثبيت"
+
+msgid "Done"
+msgstr "تم"
+
+#, c-format
+msgid "Step %d of %d"
+msgstr "الخطوة %d من %d"
+
+msgid "Check only, nothing is written"
+msgstr "فحص فقط، لا تتم كتابة أي شيء"
+
+msgid "Do not switch off the receiver"
+msgstr "لا تطفئ جهاز الاستقبال"
+
+#, c-format
+msgid "Restart in %d s"
+msgstr "إعادة التشغيل خلال %d ث"
+
+#, c-format
+msgid "Ends in %d s"
+msgstr "ينتهي خلال %d ث"
+
+msgid "Writing ext4 kernel"
+msgstr "كتابة نواة ext4"
+
+msgid "Deleting rootfs"
+msgstr "حذف rootfs"
+
+msgid "Extracting rootfs"
+msgstr "فك ضغط rootfs"
+
+msgid "Erasing kernel"
+msgstr "مسح النواة"
+
+msgid "Writing kernel"
+msgstr "كتابة النواة"
+
+msgid "Copying rootfs"
+msgstr "نسخ rootfs"
+
+msgid "Erasing rootfs"
+msgstr "مسح rootfs"
+
+msgid "Writing rootfs"
+msgstr "كتابة rootfs"
+
+msgid "Enigma2 could not be stopped, switching to runlevel 2 failed."
+msgstr "تعذر إيقاف Enigma2، فشل الانتقال إلى مستوى التشغيل 2."
+
+msgid "Nothing was flashed."
+msgstr "لم يتم تثبيت أي شيء."
+
+msgid "Wait until E2 is stopped"
+msgstr "انتظار توقف Enigma2"
+
+msgid "Enigma2 could not be stopped."
+msgstr "تعذر إيقاف Enigma2."
+
+msgid "Enigma2 starts again, nothing was flashed."
+msgstr "يُعاد تشغيل Enigma2، لم يتم تثبيت أي شيء."
+
+msgid "The flash environment could not be prepared."
+msgstr "تعذر تجهيز بيئة التثبيت."
+
+msgid "The mounts could not be moved to the flash environment."
+msgstr "تعذر نقل نقاط التحميل إلى بيئة التثبيت."
+
+msgid "The root file system could not be mounted again."
+msgstr "تعذر إعادة تحميل نظام الملفات الجذر."
+
+msgid "The root file system could not be mounted read-only."
+msgstr "تعذر تحميل نظام الملفات الجذر للقراءة فقط."
+
+msgid "The rootfs could not be unpacked. The flashed image will not start like this."
+msgstr "تعذر فك ضغط rootfs. لن تعمل الصورة المثبتة بهذا الشكل."
+
+msgid "Flash a backup."
+msgstr "ثبّت نسخة احتياطية."
+
+msgid "The check was successful."
+msgstr "نجح الفحص."
+
+msgid "The kernel was flashed."
+msgstr "تم تثبيت النواة."
+
+msgid "The kernel could not be flashed. The flashed image will not start like this."
+msgstr "تعذر تثبيت النواة. لن تعمل الصورة المثبتة بهذا الشكل."
+
+msgid "Killing processes"
+msgstr "إنهاء العمليات"
+
+msgid "Syncing filesystem"
+msgstr "مزامنة نظام الملفات"
+
+msgid "init 2"
+msgstr "إيقاف Enigma2 والخدمات"
+
+msgid "Mount rootfs"
+msgstr "تحميل rootfs"
+
+msgid "The root file system could not be mounted."
+msgstr "تعذر تحميل نظام الملفات الجذر."
+
+msgid "The rootfs could not be flashed. The flashed image will not start like this."
+msgstr "تعذر تثبيت rootfs. لن تعمل الصورة المثبتة بهذا الشكل."
+
+msgid "Create Kernel.img"
+msgstr "إنشاء kernel.img"
+
+msgid "The image was flashed."
+msgstr "تم تثبيت الصورة."
+
+#, c-format
+msgid "Bad blocks: %d (uncritical, when no changes)"
+msgstr "كتل تالفة: %d (غير خطيرة ما دام عددها لا يزداد)"
+
+msgid "Flashing UBI image"
+msgstr "جارٍ تثبيت صورة UBI"
+
+msgid "Formatting remaining eraseblocks"
+msgstr "تهيئة كتل المسح المتبقية"

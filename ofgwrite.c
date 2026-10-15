@@ -1,5 +1,6 @@
 #include "ofgwrite.h"
 #include "dream_kernel.h"
+#include "i18n.h"
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -393,6 +394,8 @@ void printUsage()
 	my_printf("   -f --force             force kill e2\n");
 	my_printf("   -q --quiet             show less output\n");
 	my_printf("   -h --help              show help\n");
+	my_printf("   --lang=xx              language of the window, e.g. de, else the one of Enigma2\n");
+	my_printf("   --dim                  darken the screen around the window while e2 or another program runs\n");
 	my_printf("   --features             list supported extensions without probing devices\n");
 	my_printf("   --backup-dream-kernel-a DIR  export shared DM820/DM7080 kernel A into a new directory (read-only)\n");
 }
@@ -509,6 +512,7 @@ int read_args(int argc, char *argv[])
 	int opt;
 	char *endptr;
 	long val;
+	enum { OPTION_LANG = 1000, OPTION_DIM };
 	static const char *short_options = "ac::k::r::ns:m:fqh";
 	static const struct option long_options[] = {
 												{"android"      , no_argument, NULL, 'a'},
@@ -521,6 +525,8 @@ int read_args(int argc, char *argv[])
 												{"force"        , no_argument      , NULL, 'f'},
 												{"quiet"        , no_argument      , NULL, 'q'},
 												{"help"         , no_argument      , NULL, 'h'},
+												{"lang"         , required_argument, NULL, OPTION_LANG},
+												{"dim"          , no_argument      , NULL, OPTION_DIM},
 												{NULL           , no_argument      , NULL,  0} };
 
 	strcpy(slotname, "linuxrootfs");
@@ -609,12 +615,19 @@ int read_args(int argc, char *argv[])
 				break;
 			case 'n':
 				no_write = 1;
+				set_checking(1);
 				break;
 			case 'f':
 				force_e2_stop = 1;
 				break;
 			case 'q':
 				quiet = 1;
+				break;
+			case OPTION_LANG:
+				set_language(optarg);
+				break;
+			case OPTION_DIM:
+				set_dim(1);
 				break;
 			case '?':
 				show_help = 1;
@@ -1275,8 +1288,9 @@ int umount_rootfs(int steps)
 	if (ret)
 	{
 		my_printf("Error switching runmode!\n");
-		set_error_text("Error switching runmode! Abort flashing.");
-		sleep(5);
+		show_error(N_("Enigma2 could not be stopped, switching to runlevel 2 failed."), N_("Nothing was flashed."),
+			FB_CLOSE, 5);
+		fb_wait(5);
 		return 0;
 	}
 
@@ -1286,7 +1300,7 @@ int umount_rootfs(int steps)
 	if (!check_e2_stopped())
 	{
 		my_printf("Error E2 can't be stopped! Abort flashing.\n");
-		set_error_text("Error E2 can't be stopped! Abort flashing.");
+		show_error(N_("Enigma2 could not be stopped."), N_("Enigma2 starts again, nothing was flashed."), FB_NONE, 0);
 		ret = system("init 3");
 		return 0;
 	}
@@ -1296,7 +1310,6 @@ int umount_rootfs(int steps)
 	close_framebuffer();
 	init_framebuffer(steps);
 	show_main_window(1, ofgwrite_version);
-	set_overall_text("Flashing image");
 	set_step_without_incr("Wait until E2 is stopped");
 	sleep(2);
 
@@ -1304,8 +1317,9 @@ int umount_rootfs(int steps)
 	if (ret)
 	{
 		my_printf("Error executing pivot_root!\n");
-		set_error_text("Error pivot_root! Abort flashing.");
-		sleep(5);
+		show_error(N_("The flash environment could not be prepared."), N_("Enigma2 starts again, nothing was flashed."),
+			FB_CLOSE, 5);
+		fb_wait(5);
 		ret = system("init 3");
 		return 0;
 	}
@@ -1321,9 +1335,9 @@ int umount_rootfs(int steps)
 	if (ret != 0)
 	{
 		my_printf("Error move mounts to newroot\n");
-		set_error_text1("Error move mounts to newroot. Abort flashing!");
-		set_error_text2("Rebooting in 30 seconds!");
-		sleep(30);
+		show_error(N_("The mounts could not be moved to the flash environment."), N_("Nothing was flashed."),
+			FB_REBOOT, 30);
+		fb_wait(30);
 		reboot(LINUX_REBOOT_CMD_RESTART);
 		return 0;
 	}
@@ -1397,9 +1411,8 @@ int umount_rootfs(int steps)
 		else
 		{
 			my_printf("Error remounting root! Abort flashing.\n");
-			set_error_text1("Error remounting root! Abort flashing.");
-			set_error_text2("Rebooting in 30 seconds");
-			sleep(30);
+			show_error(N_("The root file system could not be mounted again."), N_("Nothing was flashed."), FB_REBOOT, 30);
+			fb_wait(30);
 			reboot(LINUX_REBOOT_CMD_RESTART);
 			return 0;
 		}
@@ -1410,9 +1423,9 @@ int umount_rootfs(int steps)
 		if (ret)
 		{
 			my_printf("Error remounting root ro! Abort flashing.\n");
-			set_error_text1("Error remounting root ro! Abort flashing.");
-			set_error_text2("Rebooting in 30 seconds");
-			sleep(30);
+			show_error(N_("The root file system could not be mounted read-only."), N_("Nothing was flashed."), FB_REBOOT,
+				30);
+			fb_wait(30);
 			reboot(LINUX_REBOOT_CMD_RESTART);
 			return 0;
 		}
@@ -1774,14 +1787,14 @@ int check_device_size()
 void handle_busybox_fatal_error()
 {
 	my_printf("Error flashing rootfs! System won't boot. Please flash backup! System will reboot in 60 seconds\n");
-	set_error_text1("Error untar rootfs. System won't boot!");
-	set_error_text2("Please flash backup! Rebooting in 60 sec");
+	show_error(N_("The rootfs could not be unpacked. The flashed image will not start like this."),
+		N_("Flash a backup."), stop_e2_needed ? FB_REBOOT : FB_CLOSE, stop_e2_needed ? 60 : 30);
 	if (stop_e2_needed)
 	{
-		sleep(60);
+		fb_wait(60);
 		reboot(LINUX_REBOOT_CMD_RESTART);
 	}
-	sleep(30);
+	fb_wait(30);
 	close_framebuffer();
 	exit(EXIT_FAILURE);
 }
@@ -1789,7 +1802,7 @@ void handle_busybox_fatal_error()
 int main(int argc, char *argv[])
 {
 	if (argc == 2 && !strcmp(argv[1], "--features")) {
-		printf("dream-kernel-a\ndream-kernel-a-backup\n");
+		printf("dream-kernel-a\ndream-kernel-a-backup\ndim\nlang\n");
 		return EXIT_SUCCESS;
 	}
 	// Check if running on a box or on a PC. Stop working on PC to prevent overwriting important files
@@ -1883,7 +1896,6 @@ int main(int argc, char *argv[])
 
 		init_framebuffer(2);
 		show_main_window(0, ofgwrite_version);
-		set_overall_text("Flashing kernel");
 
 		if (!kernel_flash(kernel_device, kernel_filename))
 			ret = EXIT_FAILURE;
@@ -1893,15 +1905,15 @@ int main(int argc, char *argv[])
 		if (!quiet && ret == EXIT_SUCCESS)
 		{
 			my_printf("done\n");
-			set_step("Successfully flashed kernel!");
-			sleep(5);
+			show_success(no_write ? N_("The check was successful.") : N_("The kernel was flashed."), FB_CLOSE, 5);
+			fb_wait(5);
 		}
 		else if (ret == EXIT_FAILURE)
 		{
 			my_printf("failed. System won't boot. Please flash backup!\n");
-			set_error_text1("Error flashing kernel. System won't boot!");
-			set_error_text2("Please flash backup! Go back to E2 in 60 sec");
-			sleep(60);
+			show_error(N_("The kernel could not be flashed. The flashed image will not start like this."),
+				N_("Flash a backup."), FB_CLOSE, 60);
+			fb_wait(60);
 		}
 		closelog();
 		close_framebuffer();
@@ -1926,7 +1938,6 @@ int main(int argc, char *argv[])
 			steps+= 1;
 		init_framebuffer(steps);
 		show_main_window(0, ofgwrite_version);
-		set_overall_text("Flashing image");
 		set_step("Killing processes");
 
 		// kill nmbd, smbd, rpc.mountd and rpc.statd -> otherwise remounting root read-only is not possible
@@ -2016,8 +2027,8 @@ int main(int argc, char *argv[])
 			if (ret)
 			{
 				my_printf("Error remounting root! Abort flashing.\n");
-				set_error_text1("Error mounting root! Abort flashing.");
-				sleep(3);
+				show_error(N_("The root file system could not be mounted."), N_("Nothing was flashed."), FB_CLOSE, 3);
+				fb_wait(3);
 				close_framebuffer();
 				return EXIT_FAILURE;
 			}
@@ -2034,14 +2045,14 @@ int main(int argc, char *argv[])
 		if (!rootfs_flash(rootfs_device, rootfs_filename, nfi_filename))
 		{
 			my_printf("Error flashing rootfs! System won't boot. Please flash backup! System will reboot in 60 seconds\n");
-			set_error_text1("Error flashing rootfs. System won't boot!");
-			set_error_text2("Please flash backup! Rebooting in 60 sec");
+			show_error(N_("The rootfs could not be flashed. The flashed image will not start like this."),
+				N_("Flash a backup."), stop_e2_needed ? FB_REBOOT : FB_CLOSE, stop_e2_needed ? 60 : 3);
 			if (stop_e2_needed)
 			{
-				sleep(60);
+				fb_wait(60);
 				reboot(LINUX_REBOOT_CMD_RESTART);
 			}
-			sleep(3);
+			fb_wait(3);
 			close_framebuffer();
 			return EXIT_FAILURE;
 		}
@@ -2056,14 +2067,14 @@ int main(int argc, char *argv[])
 			if (!kernel_flash(kernel_device, kernel_filename))
 			{
 				my_printf("Error flashing kernel. System won't boot. Please flash backup! Starting E2 in 60 seconds\n");
-				set_error_text1("Error flashing kernel. System won't boot!");
-				set_error_text2("Please flash backup! Starting E2 in 60 sec");
+				show_error(N_("The kernel could not be flashed. The flashed image will not start like this."),
+					N_("Flash a backup."), stop_e2_needed ? FB_REBOOT : FB_CLOSE, stop_e2_needed ? 60 : 3);
 				if (stop_e2_needed)
 				{
-					sleep(60);
+					fb_wait(60);
 					reboot(LINUX_REBOOT_CMD_RESTART);
 				}
-				sleep(3);
+				fb_wait(3);
 				close_framebuffer();
 				return EXIT_FAILURE;
 			}
@@ -2160,17 +2171,17 @@ int main(int argc, char *argv[])
 			ret = umount2("/newroot/", MNT_DETACH);
 			ret = rmdir("/newroot/");
 			my_printf("Successfully flashed image\n");
-			set_step("Successfully flashed!");
 		}
 		else
 		{
 			ret = umount("/oldroot_remount/");
 			my_printf("Successfully flashed image Rebooting in 3 seconds...\n");
-			set_step("Successfully flashed! Rebooting in 3 seconds");
 		}
+		show_success(no_write ? N_("The check was successful.") : N_("The image was flashed."),
+			!no_write && stop_e2_needed ? FB_REBOOT : FB_CLOSE, 3);
 		fflush(stdout);
 		fflush(stderr);
-		sleep(3);
+		fb_wait(3);
 		if (!no_write && stop_e2_needed)
 		{
 			reboot(LINUX_REBOOT_CMD_RESTART);

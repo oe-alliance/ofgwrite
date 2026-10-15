@@ -1,4 +1,4 @@
-SRC = flash_erase.c nandwrite.c ofgwrite.c ubiformat.c ubiattach.c ubiutils-common.c libubigen.c libscan.c libubi.c flashcp.c ubidetach.c ubiupdatevol.c fb.c flash_ubi_jffs2.c flash_ext4.c cmdline_parser.c dream_bootblob.c dream_kernel.c dream_backup.c dream_lcd.c
+SRC = flash_erase.c nandwrite.c ofgwrite.c ubiformat.c ubiattach.c ubiutils-common.c libubigen.c libscan.c libubi.c flashcp.c ubidetach.c ubiupdatevol.c fb.c flash_ubi_jffs2.c flash_ext4.c cmdline_parser.c dream_bootblob.c dream_kernel.c dream_backup.c dream_lcd.c i18n.c i18n_strings.c
 
 SRC_BUSYBOX= busybox/fdisk.c \
 	busybox/cp.c \
@@ -74,11 +74,16 @@ SRC_BUSYBOX= busybox/fdisk.c \
 
 
 OBJ = $(SRC:.c=.o)
+
+# The flash window: LVGL is the submodule lib/lvgl, configured by include/lv_conf.h, the fonts are fonts/*.c.
+SRC_LVGL = $(shell find lib/lvgl/src -name '*.c') $(wildcard fonts/*.c)
+OBJ_LVGL = $(SRC_LVGL:.c=.o)
+override CFLAGS += -Iinclude -Ilib/lvgl -DLV_CONF_INCLUDE_SIMPLE -ffunction-sections -fdata-sections
 OBJ_BUSYBOX = $(SRC_BUSYBOX:.c=.o)
 
 OUT = ofgwrite_bin
 
-LDFLAGS= -Llib -lmtd -lssl -lcrypto -latomic -static
+LDFLAGS= -Llib -lmtd -lssl -lcrypto -latomic -lm -static -Wl,--gc-sections
 
 LIBSRC = ./lib/libmtd.c ./lib/libmtd_legacy.c ./lib/libcrc32.c ./lib/libfec.c
 
@@ -92,6 +97,8 @@ CFLAGS += -I./include -I./busybox/include -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -
 CC ?= gcc
 AR ?= ar
 
+.PHONY: fbdemo
+
 .SUFFIXES: .cpp
 
 default: $(OUT_LIB) $(OUT)
@@ -102,11 +109,16 @@ default: $(OUT_LIB) $(OUT)
 $(OUT_LIB): $(LIBOBJ)
 	$(AR) rcs $(OUT_LIB) $(LIBOBJ)
 
-$(OUT): $(OBJ) $(OBJ_BUSYBOX) $(OUT_LIB)
-	$(CC) -o $@ $(OBJ) $(OBJ_BUSYBOX) $(LDFLAGS)
+$(OUT): $(OBJ) $(OBJ_BUSYBOX) $(OBJ_LVGL) $(OUT_LIB)
+	$(CC) -o $@ $(OBJ) $(OBJ_BUSYBOX) $(OBJ_LVGL) $(LDFLAGS)
 
 dream_kernel.o: dream_kernel.h dream_bootblob.h dream_lcd.h
 dream_lcd.o: dream_lcd.h
+fb.o i18n.o i18n_strings.o ofgwrite.o ubiformat.o: i18n.h
+
+# A preview of the window without flashing, see tools/fbdemo.c.
+fbdemo: tools/fbdemo.o fb.o i18n.o i18n_strings.o $(OBJ_LVGL)
+	$(CC) -o ofgwrite_fbdemo $^ -lm -static -Wl,--gc-sections
 
 clean:
-	rm -f $(LIBOBJ) $(OUT_LIB) $(OBJ) $(OBJ_BUSYBOX) $(OUT)
+	rm -f $(LIBOBJ) $(OUT_LIB) $(OBJ) $(OBJ_BUSYBOX) $(OBJ_LVGL) $(OUT) tools/fbdemo.o ofgwrite_fbdemo

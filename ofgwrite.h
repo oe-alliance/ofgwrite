@@ -51,17 +51,25 @@ extern enum ImageTypeEnum image_type;
 void my_printf(const char *format, ...);
 void my_fprintf(FILE* stream, const char *format, ...);
 
+/* After an error or success: what follows the countdown of fb_wait(). */
+enum fb_after
+{
+	FB_NONE, FB_REBOOT, FB_CLOSE
+};
+
 int set_step(char*);
 void set_step_without_incr(char* str);
 void set_step_progress(int percent);
-void set_overall_progress(int step);
-void set_error_text(char* str);
-void set_error_text1(char* str);
-void set_error_text2(char* str);
+void set_info_text(char* str);
+void show_error(const char* message, const char* advice, enum fb_after after, int seconds);
+void show_success(const char* message, enum fb_after after, int seconds);
+void fb_wait(int seconds);
+void set_dim(int on);
+void set_checking(int on);
+void set_language(const char* lang);
 int init_framebuffer(int steps);
 void close_framebuffer();
-void set_overall_text(char* str);
-int show_main_window(int show_background_image, const char* version);
+int show_main_window(int alone, const char* version);
 
 int flash_ext4_kernel(char* device, char* filename, off_t kernel_file_size, int quiet, int no_write);
 int flash_unpack_rootfs(char* filename, int quiet, int no_write);
