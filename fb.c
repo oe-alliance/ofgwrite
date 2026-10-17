@@ -50,6 +50,7 @@ LV_FONT_DECLARE(ofg_digits_66)
 
 #define DESIGN_HEIGHT 360  /* Sizes are for a window of 480 x 360. */
 #define DRAW_ROWS 60
+#define HEAVY_WEIGHT 20  /* The rootfs step in the overall bar, against 1 for the others. */
 #define REDRAW_MS 100  /* Progress alone redraws at most this often. */
 #define ON_TOP_MS 1000  /* Over a running Enigma2 the whole window again at least this often. */
 
@@ -81,6 +82,7 @@ static lv_obj_t *step_label;
 static lv_obj_t *step_fill;
 static lv_obj_t *detail_label;
 static lv_obj_t *detail_percent;
+static lv_obj_t *detail_row;
 static lv_obj_t *info_label;
 static lv_obj_t *card;
 static lv_obj_t *card_title;
@@ -94,6 +96,8 @@ static int steps_total = 1;
 static int step_now;  /* Of set_step, 1 for the first. */
 static int step_percent;
 static int overall_percent;
+static int done_weight;  /* Of the finished steps, see step_weight(). */
+static int step_heavy;  /* The running step is the rootfs. */
 static time_t started;
 static uint32_t drawn_at;
 static uint32_t full_at;
@@ -357,6 +361,7 @@ static void build(void)
 	lv_obj_set_style_margin_ver(lv_obj_get_parent(step_fill), px(10), 0);
 	{  /* "Step 4 of 6 · 62 %" in parts, so a language from the right keeps the numbers in place. */
 		lv_obj_t *detail = box(body);
+		detail_row = detail;
 		lv_obj_set_size(detail, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
 		lv_obj_set_flex_flow(detail, LV_FLEX_FLOW_ROW);
 		lv_obj_set_style_pad_column(detail, px(6), 0);
@@ -421,15 +426,27 @@ static void show_card(void)
 	lv_obj_set_style_text_color(footer_left, lv_color_hex(error ? COLOR_RED : COLOR_OK), 0);
 }
 
+/* The overall bar: the rootfs takes most of the time, so its step counts HEAVY_WEIGHT times a short one. Only
+ * a kernel alone comes without it. */
+static int total_weight(void)
+{
+	int total = steps_total + (steps_total > 2 ? HEAVY_WEIGHT - 1 : 0);
+	int reached = done_weight + (step_heavy ? HEAVY_WEIGHT : 1);
+	return total > reached ? total : reached;
+}
+
 static void update_labels(void)
 {
 	char text[128];
 	time_t seconds = started ? time(NULL) - started : 0;
 	int step = step_now > 0 ? step_now : 1;
-	int percent = steps_total > 0 ? ((step - 1) * 100 + step_percent) / steps_total : 0;
+	/* A short step counts when it starts, the rootfs with its progress; the last step reaches 100. */
+	int percent = (done_weight * 100 + (step_heavy ? HEAVY_WEIGHT * step_percent : 100)) / total_weight();
 
-	if (percent > 99 && card_kind != CARD_SUCCESS)
-		percent = 99;  /* Until it is done; a step more than counted stays there. */
+	if (percent > 99 && step < steps_total && card_kind != CARD_SUCCESS)
+		percent = 99;  /* A step more than counted stays there. */
+	if (percent > 100)
+		percent = 100;
 	if (percent > overall_percent || card_kind == CARD_SUCCESS)
 		overall_percent = card_kind == CARD_SUCCESS ? 100 : percent;
 	snprintf(text, sizeof(text), "%d %%", overall_percent);
@@ -437,6 +454,7 @@ static void update_labels(void)
 	lv_obj_set_width(overall_fill, LV_PCT(overall_percent));
 	lv_obj_set_width(step_fill, LV_PCT(step_percent));
 	snprintf(text, sizeof(text), tr(N_("Step %d of %d")), step, step > steps_total ? step : steps_total);
+	lv_obj_invalidate(detail_row);  /* Narrower, it moves to the middle and would leave its old ends behind. */
 	lv_label_set_text(detail_label, text);
 	snprintf(text, sizeof(text), "%d %%", step_percent);
 	lv_label_set_text(detail_percent, text);
@@ -693,6 +711,13 @@ void close_framebuffer()
 
 int set_step(char *str)
 {
+	static const char *const heavy[] = {"Extracting rootfs", "Writing rootfs", "Copying rootfs", "Flashing UBI image"};
+	if (step_now > 0)
+		done_weight += step_heavy ? HEAVY_WEIGHT : 1;
+	step_heavy = 0;
+	for (size_t i = 0; i < sizeof(heavy) / sizeof(heavy[0]); ++i)
+		if (!strcmp(str, heavy[i]))
+			step_heavy = 1;
 	step_now++;
 	step_percent = 0;
 	set_step_without_incr(str);

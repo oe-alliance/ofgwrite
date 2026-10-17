@@ -1936,6 +1936,8 @@ int main(int argc, char *argv[])
 			steps+= 2;
 		else if (flash_kernel && (rootfs_flash_mode == TARBZ2 || rootfs_flash_mode == TARBZ2_MTD))
 			steps+= 1;
+		if (android)  // Create Kernel.img
+			steps++;
 		init_framebuffer(steps);
 		show_main_window(0, ofgwrite_version);
 		set_step("Killing processes");
