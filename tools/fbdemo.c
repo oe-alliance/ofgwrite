@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
 		else
 			state = argv[i];
 	set_checking(!strcmp(state, "check"));
-	if (!init_framebuffer(6) || !show_main_window(0, "5.0.1"))
+	if (!init_framebuffer(6) || !show_main_window(0, "5.0.2"))
 		return EXIT_FAILURE;
 	set_step(N_("Killing processes"));
 	set_step(N_("Syncing filesystem"));
