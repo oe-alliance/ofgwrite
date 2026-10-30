@@ -18,12 +18,8 @@
 #define FBIO_BLIT 0x22
 #endif
 
-LV_FONT_DECLARE(ofg_font_14)
-LV_FONT_DECLARE(ofg_font_16)
-LV_FONT_DECLARE(ofg_font_20)
-LV_FONT_DECLARE(ofg_font_24)
-LV_FONT_DECLARE(ofg_digits_44)
-LV_FONT_DECLARE(ofg_digits_66)
+extern const unsigned char ofg_font_ttf[];  /* fonts/ofg_font.c */
+extern const size_t ofg_font_ttf_size;
 
 /* The colors of the Open Recovery Manager. */
 #define COLOR_GROUND 0x0b1016
@@ -117,10 +113,13 @@ static int px(int value)
 	return value * win_h / DESIGN_HEIGHT;
 }
 
-/* The fonts by the height of the window: 1 from a screen of 1080 lines on. */
-static int large(void)
+/* A font in the size of the window, rendered from the built-in TTF; replaces the one for the window before. */
+static const lv_font_t *ttf(lv_font_t **font, int size)
 {
-	return win_h >= 500;
+	if (*font)
+		lv_tiny_ttf_destroy(*font);
+	*font = lv_tiny_ttf_create_data(ofg_font_ttf, ofg_font_ttf_size, px(size));
+	return *font ? *font : LV_FONT_DEFAULT;
 }
 
 /* Framebuffer */
@@ -322,13 +321,18 @@ static lv_obj_t *row(lv_obj_t *parent, int height, uint32_t color)
 
 static void build(void)
 {
-	const lv_font_t *text = large() ? &ofg_font_24 : &ofg_font_16;
-	const lv_font_t *small = large() ? &ofg_font_20 : &ofg_font_14;
+	static lv_font_t *text_font, *small_font, *digits_font;
 	lv_obj_t *screen = lv_display_get_screen_active(display);
 	lv_obj_t *header;
 	lv_obj_t *footer;
+	const lv_font_t *text;
+	const lv_font_t *small;
+	const lv_font_t *digits;
 
-	lv_obj_clean(screen);
+	lv_obj_clean(screen);  /* Before the fonts of its labels go. */
+	text = ttf(&text_font, 16);
+	small = ttf(&small_font, 14);
+	digits = ttf(&digits_font, 44);
 	lv_obj_set_style_bg_opa(screen, LV_OPA_TRANSP, 0);
 	window = box(screen);
 	lv_obj_set_size(window, win_w, win_h);  /* Its parts are translucent each, so they do not add up. */
@@ -349,7 +353,7 @@ static void build(void)
 	lv_obj_set_style_pad_hor(body, px(40), 0);
 	lv_obj_set_flex_flow(body, LV_FLEX_FLOW_COLUMN);
 	lv_obj_set_flex_align(body, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-	percent_label = ltr(label(body, large() ? &ofg_digits_66 : &ofg_digits_44, COLOR_TEXT));
+	percent_label = ltr(label(body, digits, COLOR_TEXT));
 	overall_fill = bar(body, 100, px(14), COLOR_FOCUS);
 	lv_obj_set_style_margin_top(lv_obj_get_parent(overall_fill), px(14), 0);
 	lv_obj_set_style_margin_bottom(lv_obj_get_parent(overall_fill), px(22), 0);
@@ -728,6 +732,8 @@ void set_step_without_incr(char *str)
 {
 	if (step_label)
 		lv_label_set_text(step_label, tr(str));
+	if (window)  /* Lines and bars get shorter, their old ends would stay without Enigma2's redraws. */
+		lv_obj_invalidate(window);
 	draw(1);
 }
 

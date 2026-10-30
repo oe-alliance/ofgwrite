@@ -75,7 +75,7 @@ SRC_BUSYBOX= busybox/fdisk.c \
 
 OBJ = $(SRC:.c=.o)
 
-# The flash window: LVGL is the submodule lib/lvgl, configured by include/lv_conf.h, the fonts are fonts/*.c.
+# The flash window: LVGL is the submodule lib/lvgl, configured by include/lv_conf.h, the font is fonts/ofg_font.c.
 SRC_LVGL = $(shell find lib/lvgl/src -name '*.c') $(wildcard fonts/*.c)
 OBJ_LVGL = $(SRC_LVGL:.c=.o)
 override CFLAGS += -Iinclude -Ilib/lvgl -DLV_CONF_INCLUDE_SIMPLE -ffunction-sections -fdata-sections

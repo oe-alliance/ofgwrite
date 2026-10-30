@@ -1010,7 +1010,7 @@
 #define LV_FONT_MONTSERRAT_12 0
 
 /** Montserrat 14 */
-#define LV_FONT_MONTSERRAT_14 0
+#define LV_FONT_MONTSERRAT_14 1
 
 /** Montserrat 16 */
 #define LV_FONT_MONTSERRAT_16 0
@@ -1144,8 +1144,8 @@
  *  - LV_FONT_DEFAULT_UNSCII_8 (enable: LV_FONT_UNSCII_8)
  *  - LV_FONT_DEFAULT_UNSCII_16 (enable: LV_FONT_UNSCII_16)
  */
-#define LV_FONT_CUSTOM_DECLARE LV_FONT_DECLARE(ofg_font_16)
-#define LV_FONT_DEFAULT &ofg_font_16
+/* Only if the TTF of fb.c cannot be loaded. */
+#define LV_FONT_DEFAULT &lv_font_montserrat_14
 
 #endif /*!LV_USE_CUSTOM_FONT_DEFAULT*/
 
@@ -1197,7 +1197,7 @@
 #endif /*LV_USE_FREETYPE*/
 
 /** Built-in TTF decoder */
-#define LV_USE_TINY_TTF 0
+#define LV_USE_TINY_TTF 1
 
 #if LV_USE_TINY_TTF
 /** Load TTF data from files */

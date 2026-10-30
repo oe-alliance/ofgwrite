@@ -12,9 +12,10 @@ Options:
 --dim darken the screen around the window while Enigma2 or another program runs  
 -h --help show help  
 
-The window is drawn with LVGL, the submodule lib/lvgl, configured by include/lv_conf.h. Its fonts are
-fonts/*.c from tools/mkfonts.sh, its texts po/*.po, which tools/mkstrings.py turns into i18n_strings.c,
-so ofgwrite needs no files after pivot_root. `make fbdemo` builds ofgwrite_fbdemo, which shows the
+The window is drawn with LVGL, the submodule lib/lvgl, configured by include/lv_conf.h. Its font is
+DejaVu Sans in fonts/ofg_font.c from tools/mkfonts.sh, which LVGL's Tiny TTF renders in the size of the
+window, and its texts are po/*.po, which tools/mkstrings.py turns into i18n_strings.c, so ofgwrite needs no
+files after pivot_root. `make fbdemo` builds ofgwrite_fbdemo, which shows the
 window without flashing: `ofgwrite_fbdemo [--lang=xx] [--dim] progress|check|error|success [seconds]`.
 
 Warning:  
