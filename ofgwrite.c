@@ -2139,14 +2139,16 @@ int main(int argc, char *argv[])
 					 && access("/dreamcard/kernel.img", F_OK) == 0) {
 						snprintf(filename, sizeof(filename), "/dreamcard/kernel.img");
 					} else {
-						size_t length = strlen(rootfs_device);
-						int kernelnr = (length > 0) ? rootfs_device[length - 1] - '0' : -1;
-						if (kernelnr < 0 || kernelnr > 9) {
+						// The partition number names the kernel, e.g. /dev/mmcblk1p12 -> kernel12.img
+						const char *partition = strrchr(rootfs_device, 'p');
+						char *end = NULL;
+						long kernelnr = partition ? strtol(partition + 1, &end, 10) : -1;
+						if (!partition || end == partition + 1 || *end != '\0' || kernelnr < 2 || kernelnr > 99) {
 							my_printf("Error: Invalid kernel number\n");
 							rmdir(dreamcard_mount);
 							return EXIT_FAILURE;
 						}
-						snprintf(filename, sizeof(filename), "/dreamcard/kernel%d.img", kernelnr);
+						snprintf(filename, sizeof(filename), "/dreamcard/kernel%ld.img", kernelnr);
 					}
 					my_printf("start generate %s image on %s\n", filename, dreamcard_device);
 					generate_boot_image(filename);
