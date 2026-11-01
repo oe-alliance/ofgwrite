@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
 		else
 			state = argv[i];
 	set_checking(!strcmp(state, "check"));
-	if (!init_framebuffer(6) || !show_main_window(0, "5.0.3"))
+	if (!init_framebuffer(6) || !show_main_window(0, "5.0.4"))
 		return EXIT_FAILURE;
 	if (!strcmp(state, "steps")) {
 		static char *const names[] = {N_("Killing processes"), N_("Syncing filesystem"), N_("init 2"),
@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 			if (i == 3 && alone) {
 				close_framebuffer();
 				init_framebuffer(6);
-				show_main_window(1, "5.0.3");
+				show_main_window(1, "5.0.4");
 			}
 			set_step(names[i]);
 			for (int percent = 0; i == 4 && percent <= 100; percent += 5) {
