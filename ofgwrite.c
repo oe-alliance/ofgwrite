@@ -110,6 +110,7 @@ char *boxname = NULL;
 enum RootfsTypeEnum rootfs_type;
 int stop_e2_needed = 1;
 int chkroot_mode = 0;
+int shared_kernel_slot_one = 0;
 
 const char ofgwrite_version[] = "5.0.4";
 
@@ -1510,6 +1511,9 @@ void readProcCmdline()
 		find_store_substring(line, "root=", current_rootfs_device);
 		find_store_substring(line, "kernel=", current_kernel_device);
 		find_store_substring(line, "rootsubdir=", current_rootfs_sub_dir);
+		char kernel_policy[sizeof(line)] = { 0 };
+		find_store_substring(line, "kernelpolicy=", kernel_policy);
+		shared_kernel_slot_one = !strcmp(kernel_policy, "slot1");
 
 		boxname = ReadProcEntry("/proc/stb/info/model");
 		if ((strstr(line, "others") != NULL ||
@@ -1630,6 +1634,10 @@ int find_kernel_rootfs_device()
 	int mtd_kernel_found = found_kernel_device;
 	// get kernel/rootfs from cmdline
 	readProcCmdline();
+	if (flash_kernel && shared_kernel_slot_one && multiboot_partition != 1) {
+		my_printf("Only slot 1 may update the shared kernel; use a rootfs-only update for other slots\n");
+		return 0;
+	}
 	if (flash_kernel && dream_kernel_model(boxname))
 		return find_dream_devices();
 
@@ -1756,6 +1764,10 @@ int check_device_size()
 		if (kernel_file_stat.st_size > devsize)
 		{
 			my_printf("Kernel file(%lld) is bigger than kernel device(%llu). Aborting\n", kernel_file_stat.st_size, devsize);
+			return 0;
+		}
+		if (flash_kernel && shared_kernel_slot_one && kernel_file_stat.st_size != devsize) {
+			my_printf("A shared raw kernel update must contain the complete kernel partition\n");
 			return 0;
 		}
 	}
